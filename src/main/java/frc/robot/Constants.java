@@ -4,25 +4,18 @@
 
 package frc.robot;
 
-import static edu.wpi.first.units.Units.*;
+import static edu.wpi.first.units.Units.Rotation;
 
-import edu.wpi.first.math.geometry.Pose2d;
-import edu.wpi.first.math.geometry.Pose3d;
-import edu.wpi.first.math.geometry.Rotation2d;
-import edu.wpi.first.math.geometry.Rotation3d;
-import edu.wpi.first.units.AngleUnit;
-import edu.wpi.first.units.DistanceUnit;
-import edu.wpi.first.units.Units;
 import edu.wpi.first.units.measure.Angle;
-import edu.wpi.first.units.measure.AngularVelocity;
-import edu.wpi.first.units.measure.Distance;
 
 /** Add your docs here. */
 public class Constants {
-        public static abstract class ExampleSubsystemConstants{
-            public static final int exampleMotorID = 12; 
-            public static final double fastSpeed = 1;
-            public static final double slowSpeed = 0;
+        public static abstract class ElevatorConstants{
+            public static final Angle In = Rotation.of(0);
+            public static final Angle Mid = Rotation.of(3);
+            public static final Angle Out = Rotation.of(6);
+
+
         }
 
         public static abstract class DriveConstants{

@@ -241,43 +241,6 @@ public class FieldConstants {
         }
     }
 
-    // reefscape constants, old
-    public static final int[] BLUE_REEF_TAG_IDS = { 18, 19, 20, 21, 22, 17 };
-    public static final int[] BLUE_CORAL_STATION_TAG_IDS = { 12, 13 };
-    public static final int[] RED_REEF_TAG_IDS = { 7, 6, 11, 10, 9, 8 };
-    public static final int[] RED_CORAL_STATION_TAG_IDS = { 1, 2 };
-    public static final int[] ALL_REEF_TAG_IDS = { 18, 19, 20, 21, 22, 17, 7, 6, 11, 10, 9, 8 };
-
-    public static final List<Pose2d> CORAL_STATIONS = new ArrayList<>();
-
-
-    public static final Pose3d[] REEF_TAG_POSES = new Pose3d[RED_REEF_TAG_IDS.length + BLUE_REEF_TAG_IDS.length];
-    public static final List<Pose2d> REEF_TAGS = new ArrayList<>();
-
-    static {
-        for (Pose3d tag : REEF_TAG_POSES) {
-            REEF_TAGS.add(tag.toPose2d());
-        }
-    }
-
-    public static final Transform3d HIGH_ALGAE_TRANSFORM = new Transform3d(Units.inchesToMeters(-6), 0,
-            Units.inchesToMeters(39.575), Rotation3d.kZero);
-    public static final Transform3d LOW_ALGAE_TRANSFORM = new Transform3d(Units.inchesToMeters(-6), 0,
-            Units.inchesToMeters(23.675), Rotation3d.kZero);
-
-    public static final Pose3d[] REEF_ALGAE_POSES = new Pose3d[REEF_TAG_POSES.length];
-
-    static {
-        for (int i = 0; i < REEF_ALGAE_POSES.length; i++) {
-            REEF_ALGAE_POSES[i] = REEF_TAG_POSES[i].plus(i % 2 == 0 ? HIGH_ALGAE_TRANSFORM : LOW_ALGAE_TRANSFORM);
-        }
-    }
-
-    public static final double BARGE_X = FIELD_LENGTH / 2.0;
-    public static final double BARGE_WIDTH = Units.inchesToMeters(40) / 2.0;
-    public static final double BARGE_HEIGHT = Units.inchesToMeters(74 + 8);
-    public static final double BARGE_HEIGHT_TOLERANCE = Units.inchesToMeters(12);
-
     public static final double TRANSLATIONAL_TOLERANCE = Units.inchesToMeters(16);
     public static final double DROP_COOLDOWN = 2.0;
 }

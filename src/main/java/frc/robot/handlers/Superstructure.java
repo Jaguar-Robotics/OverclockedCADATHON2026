@@ -16,6 +16,7 @@ public class Superstructure extends SubsystemBase {
   // Define your states
   public enum SuperstructureState {
     IDLE,
+    EXTEND,
     OFF
   }
 
@@ -23,7 +24,7 @@ public class Superstructure extends SubsystemBase {
   private CommandSwerveDrivetrain drivetrain;
   private CommandXboxController joystick;
   
-  private final ExampleHandler exampleHandler = ExampleHandler.getInstance();
+  private final ElevatorHandler elevatorHandler = ElevatorHandler.getInstance();
 
   private SuperstructureState desiredState = SuperstructureState.IDLE;
   private SuperstructureState currentState = SuperstructureState.IDLE;
@@ -59,10 +60,14 @@ public class Superstructure extends SubsystemBase {
   private void handleStateTransition() {
     switch (desiredState) {
       case IDLE:
-        exampleHandler.setDesiredState(ExampleHandler.ExampleState.OFF);
+        elevatorHandler.setDesiredState(ElevatorHandler.ElevatorState.IN);
+        break;
+      case EXTEND:
+        elevatorHandler.setDesiredState(ElevatorHandler.ElevatorState.OUT);
         break;
       case OFF:
-        exampleHandler.setDesiredState(ExampleHandler.ExampleState.OFF);
+        elevatorHandler.setDesiredState(ElevatorHandler.ElevatorState.BRAKE);
+        break;
     }
     currentState = desiredState;
   }

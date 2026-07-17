@@ -16,6 +16,12 @@ import com.pathplanner.lib.auto.AutoBuilder;
 import com.pathplanner.lib.auto.NamedCommands;
 import com.pathplanner.lib.commands.FollowPathCommand;
 
+import edu.wpi.first.math.geometry.Pose2d;
+import edu.wpi.first.math.geometry.Pose3d;
+import edu.wpi.first.math.geometry.Rotation2d;
+import edu.wpi.first.networktables.NetworkTableInstance;
+import edu.wpi.first.networktables.StructArrayPublisher;
+import edu.wpi.first.networktables.StructPublisher;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
@@ -25,9 +31,10 @@ import edu.wpi.first.wpilibj2.command.button.RobotModeTriggers;
 import frc.robot.generated.TunerConstants;
 import frc.robot.handlers.Superstructure;
 import frc.robot.subsystems.CommandSwerveDrivetrain;
-import frc.robot.subsystems.ExampleSubsystem;
-import frc.robot.subsystems.Vision;
+import frc.robot.subsystems.ElevatorSubsystem;
+import frc.robot.subsystems.ShooterSubsystem;
 import frc.robot.utils.simulation.crystalcaverns.CrystalCavernsArena;
+import frc.robot.utils.simulation.crystalcaverns.MineSim;
 
 public class RobotContainer {
 
@@ -48,19 +55,24 @@ public class RobotContainer {
     private final CommandXboxController joystick = new CommandXboxController(0);
     private final CommandXboxController opJoystick = new CommandXboxController(1);
 
-    public final CommandSwerveDrivetrain drivetrain = TunerConstants.createDrivetrain();
-    
-    public final Vision vision = new Vision(drivetrain);
+    static {
+    SimulatedArena.overrideInstance(new CrystalCavernsArena());
+    }
 
-    public final ExampleSubsystem exampleSubsystem = new ExampleSubsystem();
+
+    public final CommandSwerveDrivetrain drivetrain = TunerConstants.createDrivetrain();
+
+    public final ElevatorSubsystem elevator = new ElevatorSubsystem();
 
     public final Superstructure superstructure = Superstructure.getInstance(); 
+    public final ShooterSubsystem shooter = new ShooterSubsystem(drivetrain);
  
 
     /* Path follower */
     private final SendableChooser<Command> autoChooser;
 
     public RobotContainer() {
+
         Superstructure.getInstance().initialize(drivetrain, joystick);
 
         configurePathPlanner();
@@ -74,7 +86,10 @@ public class RobotContainer {
         // Warmup PathPlanner to avoid Java pauses
         FollowPathCommand.warmupCommand().schedule();
 
-        //SimulatedArena.overrideInstance(new CrystalCavernsArena());
+        
+        SimulatedArena.getInstance().resetFieldForAuto();
+
+        drivetrain.resetPose(new Pose2d(2.0, 4.0, Rotation2d.fromDegrees(0)));
     }
 
     private void configurePathPlanner() {
@@ -113,13 +128,32 @@ public class RobotContainer {
         
         //On true for pressing the Y button on joystick, it sets the superstructure state to idle
         joystick.y().onTrue(new InstantCommand(() -> superstructure.setDesiredState(Superstructure.SuperstructureState.IDLE)));
+        joystick.a().onTrue(new InstantCommand(() -> superstructure.setDesiredState(Superstructure.SuperstructureState.EXTEND)));
 
-        joystick.a().onTrue(new InstantCommand(() -> SimulatedArena.getInstance().placeGamePiecesOnField()));
-        joystick.a().onTrue(new InstantCommand(() ->  new InstantCommand(() -> System.out.print("yay"))));
+
+        joystick.leftTrigger().onTrue(new InstantCommand(() -> MineSim.drop(MineSim.getNearestStation(drivetrain.getSimPose()), false)));
+        joystick.leftBumper().onTrue(new InstantCommand(() -> SimulatedArena.getInstance().clearGamePieces()));
+        joystick.rightBumper().onTrue(new InstantCommand(() -> shooter.shoot()));
+
     }        
 
     public Command getAutonomousCommand() {
         /* Run the path selected from the auto chooser */
         return autoChooser.getSelected();
+    }
+
+    private final StructArrayPublisher<Pose3d> crystalsPublisher =
+        NetworkTableInstance.getDefault()
+                .getStructArrayTopic("FieldSimulation/Crystals", Pose3d.struct)
+                .publish();
+
+    private final StructArrayPublisher<Pose3d> gemstonesPublisher =
+        NetworkTableInstance.getDefault()
+                .getStructArrayTopic("FieldSimulation/Gemstones", Pose3d.struct)
+                .publish();
+
+    public void updateSimulation() {
+        crystalsPublisher.set(SimulatedArena.getInstance().getGamePiecesArrayByType("Crystal"));
+        gemstonesPublisher.set(SimulatedArena.getInstance().getGamePiecesArrayByType("Gemstone"));
     }
 }
