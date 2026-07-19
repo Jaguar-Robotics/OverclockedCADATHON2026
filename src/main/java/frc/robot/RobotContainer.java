@@ -21,7 +21,6 @@ import edu.wpi.first.math.geometry.Pose3d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.networktables.NetworkTableInstance;
 import edu.wpi.first.networktables.StructArrayPublisher;
-import edu.wpi.first.networktables.StructPublisher;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
@@ -29,10 +28,14 @@ import edu.wpi.first.wpilibj2.command.InstantCommand;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import edu.wpi.first.wpilibj2.command.button.RobotModeTriggers;
 import frc.robot.generated.TunerConstants;
+import frc.robot.handlers.DriveHandler;
 import frc.robot.handlers.Superstructure;
-import frc.robot.subsystems.CommandSwerveDrivetrain;
+import frc.robot.subsystems.ArmSubsystem;
 import frc.robot.subsystems.ElevatorSubsystem;
+import frc.robot.subsystems.IntakeSubsystem;
 import frc.robot.subsystems.ShooterSubsystem;
+import frc.robot.subsystems.Drive.CommandSwerveDrivetrain;
+import frc.robot.utils.simulation.MapleSimSwerveDrivetrain;
 import frc.robot.utils.simulation.crystalcaverns.CrystalCavernsArena;
 import frc.robot.utils.simulation.crystalcaverns.MineSim;
 
@@ -59,26 +62,28 @@ public class RobotContainer {
     SimulatedArena.overrideInstance(new CrystalCavernsArena());
     }
 
-
     public final CommandSwerveDrivetrain drivetrain = TunerConstants.createDrivetrain();
-
-    public final ElevatorSubsystem elevator = new ElevatorSubsystem();
-
+    //public final ElevatorSubsystem elevator = new ElevatorSubsystem();
+    public final IntakeSubsystem intake =  new IntakeSubsystem(drivetrain.getSimDrivetrain(), SimulatedArena.getInstance());
+    public final ShooterSubsystem shooter = new ShooterSubsystem(drivetrain, intake); //only here because theres no shooterhandler
+    private final ElevatorSubsystem elevator = new ElevatorSubsystem();
+    private final ArmSubsystem arm = new ArmSubsystem(elevator);
     public final Superstructure superstructure = Superstructure.getInstance(); 
-    public final ShooterSubsystem shooter = new ShooterSubsystem(drivetrain);
  
-
     /* Path follower */
     private final SendableChooser<Command> autoChooser;
 
+
     public RobotContainer() {
 
-        Superstructure.getInstance().initialize(drivetrain, joystick);
+        Superstructure.getInstance().initialize(drivetrain, joystick, elevator, arm);
+        
+
+        drivetrain.setParamsDT(joystick, MaxSpeed, MaxAngularRate, drive, drivetrain);
+        
 
         configurePathPlanner();
-
         autoChooser = AutoBuilder.buildAutoChooser("Tests");
-
         SmartDashboard.putData("Auto Mode", autoChooser);
 
         configureBindings();
@@ -86,22 +91,21 @@ public class RobotContainer {
         // Warmup PathPlanner to avoid Java pauses
         FollowPathCommand.warmupCommand().schedule();
 
-        
         SimulatedArena.getInstance().resetFieldForAuto();
-
         drivetrain.resetPose(new Pose2d(2.0, 4.0, Rotation2d.fromDegrees(0)));
     }
+
 
     private void configurePathPlanner() {
         NamedCommands.registerCommand("ExampleCommand",
          new InstantCommand(() -> superstructure.setDesiredState(Superstructure.SuperstructureState.IDLE)));
     }
 
+
      private void configureBindings() {
         // Note that X is defined as forward according to WPILib convention,
         // and Y is defined as to the left according to WPILib convention.
-       
-
+       /* 
         drivetrain.setDefaultCommand(
             // Drivetrain will execute this command periodically
             drivetrain.applyRequest(() ->
@@ -110,7 +114,7 @@ public class RobotContainer {
                     .withRotationalRate(-joystick.getRightX() * MaxAngularRate) // Drive counterclockwise with negative X (left)
             )
         ); 
-     
+        */
 
         // Idle while the robot is disabled. This ensures the configured
         // neutral mode is applied to the drive motors while disabled.
@@ -128,10 +132,12 @@ public class RobotContainer {
         
         //On true for pressing the Y button on joystick, it sets the superstructure state to idle
         joystick.y().onTrue(new InstantCommand(() -> superstructure.setDesiredState(Superstructure.SuperstructureState.IDLE)));
-        joystick.a().onTrue(new InstantCommand(() -> superstructure.setDesiredState(Superstructure.SuperstructureState.EXTEND)));
+        joystick.a().onTrue(new InstantCommand(() -> superstructure.setDesiredState(Superstructure.SuperstructureState.SCOREHIGH)));
 
 
         joystick.leftTrigger().onTrue(new InstantCommand(() -> MineSim.drop(MineSim.getNearestStation(drivetrain.getSimPose()), false)));
+        joystick.leftTrigger().onTrue(new InstantCommand(() -> intake.startIntake()));
+        joystick.leftTrigger().onFalse(new InstantCommand(() -> intake.stopIntake()));
         joystick.leftBumper().onTrue(new InstantCommand(() -> SimulatedArena.getInstance().clearGamePieces()));
         joystick.rightBumper().onTrue(new InstantCommand(() -> shooter.shoot()));
 

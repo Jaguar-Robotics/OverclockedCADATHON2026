@@ -6,6 +6,7 @@ import static edu.wpi.first.units.Units.Inches;
 import static edu.wpi.first.units.Units.Meters;
 import static edu.wpi.first.units.Units.Radians;
 import static edu.wpi.first.units.Units.RadiansPerSecond;
+import static edu.wpi.first.units.Units.Rotation;
 import static edu.wpi.first.units.Units.Rotations;
 import static edu.wpi.first.units.Units.RotationsPerSecond;
 
@@ -62,11 +63,12 @@ public class ElevatorSubsystem extends SubsystemBase {
 
     private static final double kGearRatio = 5.5555555;
     private static final Distance kDrumRadius = Inches.of(1.1);
-    private static final Distance kMaxHeight = Inches.of(47);
+    private static final Distance kMinHeight = Inches.of(32);
+    private static final Distance kMaxHeight = kMinHeight.plus(Inches.of(50));
 
     /* leader and follower motors */
     private final CANBus kCANBus = new CANBus("Upper");
-    private final TalonFX motor_id_35 = new TalonFX(10, "Upper");
+    private final TalonFX motor_id_35 = new TalonFX(35, "Upper");
 
     /* device status signals */
     private final StatusSignal<Angle> motor_id_35Position = motor_id_35.getPosition(false);
@@ -91,9 +93,9 @@ public class ElevatorSubsystem extends SubsystemBase {
 
     /* simulation */
     private final ElevatorSim elevatorSim_motor_id_35 = new ElevatorSim(
-        DCMotor.getKrakenX60Foc(1),
-        kGearRatio, 5, kDrumRadius.in(Meters),
-        0.0, kMaxHeight.in(Meters), false, 0.0
+        DCMotor.getKrakenX60(4),
+        kGearRatio, 15.8, kDrumRadius.in(Meters),
+        kMinHeight.in(Meters), kMaxHeight.in(Meters), false, kMinHeight.in(Meters)
     );
 
     private static final double kSimLoopPeriod = 0.002; // 2 ms
@@ -101,12 +103,24 @@ public class ElevatorSubsystem extends SubsystemBase {
     private double lastSimTime = 0.0;
 
     /* Mechanism2d visualization of the elevator */
-    private final Mechanism2d mech2d = new Mechanism2d(2, kMaxHeight.in(Meters));
-    private final MechanismLigament2d motor_id_35Mech2d = mech2d.getRoot("motor_id_35 Root", 1, 0) //-0.343, 0.4318
-        .append(new MechanismLigament2d("motor_id_35", elevatorSim_motor_id_35.getPositionMeters(), 90));
+    private final Mechanism2d mech2d = new Mechanism2d(1, kMaxHeight.in(Meters));
+    private final MechanismLigament2d motor_id_35Mech2d = mech2d.getRoot("motor_id_35 Root", 0.15, 0.4318) //-0.343, 0.4318
+        .append(new MechanismLigament2d("motor_id_35", elevatorSim_motor_id_35.getPositionMeters(), 25.767));
+
+    public MechanismLigament2d getEndLigament() {
+    return motor_id_35Mech2d; // the elevator's ligament, i.e. its moving tip
+}
 
     /** Configs common across all motors. */
     private static final TalonFXConfiguration motorInitialConfigs = new TalonFXConfiguration();
+
+    static { 
+        motorInitialConfigs.Feedback.SensorToMechanismRatio = kGearRatio;
+        motorInitialConfigs.SoftwareLimitSwitch.ForwardSoftLimitEnable = true;
+        motorInitialConfigs.SoftwareLimitSwitch.ForwardSoftLimitThreshold = Rotations.of(6.8).in(Rotation);
+        motorInitialConfigs.SoftwareLimitSwitch.ReverseSoftLimitEnable = true;
+        motorInitialConfigs.SoftwareLimitSwitch.ReverseSoftLimitThreshold = 0;
+    }
 
     /** Configs common across just the leader motors. */
     private static final TalonFXConfiguration leaderInitialConfigs = motorInitialConfigs.clone();
@@ -121,11 +135,9 @@ public class ElevatorSubsystem extends SubsystemBase {
     leaderInitialConfigs.Slot0.kD = 0.1;
     
     
-    leaderInitialConfigs.MotionMagic.MotionMagicCruiseVelocity = 300; // rps
-    leaderInitialConfigs.MotionMagic.MotionMagicAcceleration = 960; // rps/s
-    leaderInitialConfigs.MotionMagic.MotionMagicJerk = 3200; // rps/s/s
-
-    motorInitialConfigs.Feedback.SensorToMechanismRatio = kGearRatio;
+    leaderInitialConfigs.MotionMagic.MotionMagicCruiseVelocity = 300 / kGearRatio; // rps
+    leaderInitialConfigs.MotionMagic.MotionMagicAcceleration = 960 / kGearRatio; // rps/s
+    leaderInitialConfigs.MotionMagic.MotionMagicJerk = 3200 / kGearRatio; // rps/s/s
     
     }
 
@@ -260,10 +272,11 @@ public class ElevatorSubsystem extends SubsystemBase {
         ); 
 
         motor_id_35Mech2d.setLength(
-            motor_id_35Position.getValueAsDouble() * kDrumRadius.in(Meters) * 2 * Math.PI
+            kMinHeight.in(Meters) + motor_id_35Position.getValueAsDouble() * kDrumRadius.in(Meters) * 2 * Math.PI
         );
 
         DogLog.log("Elevator/DebugLength", motor_id_35Position.getValueAsDouble() * kDrumRadius.in(Meters) * 2 * Math.PI); // temp debug
+        DogLog.log("Elevator/rawLengthMeters", elevatorSim_motor_id_35.getPositionMeters());
     }
 
     private void startSimThread() {
@@ -290,7 +303,7 @@ public class ElevatorSubsystem extends SubsystemBase {
 
             /* Apply the new rotor position and velocity to the motors (before gear ratio) */
             motor_id_35Sim.setRawRotorPosition(
-                Radians.of(elevatorSim_motor_id_35.getPositionMeters() / kDrumRadius.in(Meters) * kGearRatio)
+                Radians.of((elevatorSim_motor_id_35.getPositionMeters() - kMinHeight.in(Meters)) / kDrumRadius.in(Meters) * kGearRatio)
             );
             motor_id_35Sim.setRotorVelocity(
                 RadiansPerSecond.of(elevatorSim_motor_id_35.getVelocityMetersPerSecond() / kDrumRadius.in(Meters) * kGearRatio)

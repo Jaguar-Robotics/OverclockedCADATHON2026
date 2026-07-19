@@ -4,7 +4,7 @@
 
 package frc.robot;
 
-import static edu.wpi.first.units.Units.Rotation;
+import static edu.wpi.first.units.Units.*;
 
 import edu.wpi.first.units.measure.Angle;
 
@@ -15,7 +15,12 @@ public class Constants {
             public static final Angle Mid = Rotation.of(3);
             public static final Angle Out = Rotation.of(6);
 
+        }
 
+        public static abstract class ArmConstants{
+            public static final Angle Handoff = Degree.of(-105);
+            public static final Angle Scoring = Degree.of(25);
+            public static final Angle climb = Degree.of(90);
         }
 
         public static abstract class DriveConstants{

@@ -4,6 +4,7 @@
 
 package frc.robot.handlers;
 
+import dev.doglog.DogLog;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.Constants;
 import frc.robot.subsystems.ElevatorSubsystem;
@@ -16,9 +17,8 @@ public class ElevatorHandler extends SubsystemBase implements StateSubsystem {
       IN,
       BRAKE
   }
-
+  private ElevatorSubsystem elevator;
   private static ElevatorHandler instance;
-  private final ElevatorSubsystem elevator = new ElevatorSubsystem();
 
   private ElevatorState desiredState = ElevatorState.IN;
   private ElevatorState currentState = ElevatorState.IN;
@@ -30,6 +30,10 @@ public class ElevatorHandler extends SubsystemBase implements StateSubsystem {
       instance = new ElevatorHandler();
     }
     return instance;
+  }
+
+  public void initialize(ElevatorSubsystem elevator){
+    this.elevator = elevator;
   }
 
   @Override
@@ -71,6 +75,7 @@ public class ElevatorHandler extends SubsystemBase implements StateSubsystem {
 
   @Override
   public void periodic() {
+    DogLog.log("ElevatorHandler/CurrentState", currentState);
     update();
     // This method will be called once per scheduler run
   }

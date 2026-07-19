@@ -1,30 +1,34 @@
 package frc.robot.handlers;
 
-import static edu.wpi.first.units.Units.Degrees;
-import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
-
-import edu.wpi.first.math.kinematics.ChassisSpeeds;
-import edu.wpi.first.units.measure.Angle;
-import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
-import frc.robot.Constants;
-import frc.robot.subsystems.CommandSwerveDrivetrain;
+import frc.robot.subsystems.ArmSubsystem;
+import frc.robot.subsystems.ElevatorSubsystem;
+import frc.robot.subsystems.Drive.CommandSwerveDrivetrain;
 
 public class Superstructure extends SubsystemBase {
 
   // Define your states
   public enum SuperstructureState {
     IDLE,
-    EXTEND,
-    OFF
+    HANDOFF,
+    SHOOTING,
+    SCORELOW,
+    SCOREHIGH,
+    CLIMBENGADGE,
+    CLIMBED
   }
 
   private static Superstructure instance;
   private CommandSwerveDrivetrain drivetrain;
+  private ElevatorSubsystem elevator;
+  private ArmSubsystem arm;
   private CommandXboxController joystick;
   
   private final ElevatorHandler elevatorHandler = ElevatorHandler.getInstance();
+  private final ArmHandler armhandler = ArmHandler.getInstance();
+  private final DriveHandler driveHandler = DriveHandler.getInstance();
+
 
   private SuperstructureState desiredState = SuperstructureState.IDLE;
   private SuperstructureState currentState = SuperstructureState.IDLE;
@@ -40,9 +44,14 @@ public class Superstructure extends SubsystemBase {
     /**
    * Initialize superstructure with required subsystems
    */
-  public void initialize( CommandSwerveDrivetrain drivetrain, CommandXboxController joystick) {
+  public void initialize( CommandSwerveDrivetrain drivetrain, CommandXboxController joystick, ElevatorSubsystem elevator, ArmSubsystem arm) {
       this.drivetrain = drivetrain;
       this.joystick = joystick;
+      this.elevator = elevator;
+      this.arm = arm;
+      driveHandler.initialize(drivetrain);
+      elevatorHandler.initialize(elevator);
+      armhandler.initialize(elevator, arm);
   }
 
   private Superstructure() {}
@@ -61,12 +70,18 @@ public class Superstructure extends SubsystemBase {
     switch (desiredState) {
       case IDLE:
         elevatorHandler.setDesiredState(ElevatorHandler.ElevatorState.IN);
+        armhandler.setDesiredState(ArmHandler.ArmState.HANDOFF);
+        driveHandler.setDesiredState(DriveHandler.DriveState.TELEOPDRIVE);
         break;
-      case EXTEND:
+      case HANDOFF:
+        elevatorHandler.setDesiredState(ElevatorHandler.ElevatorState.IN);
+        armhandler.setDesiredState(ArmHandler.ArmState.HANDOFF);
+        driveHandler.setDesiredState(DriveHandler.DriveState.TELEOPDRIVE);
+        break;
+      case SCOREHIGH:
         elevatorHandler.setDesiredState(ElevatorHandler.ElevatorState.OUT);
-        break;
-      case OFF:
-        elevatorHandler.setDesiredState(ElevatorHandler.ElevatorState.BRAKE);
+        armhandler.setDesiredState(ArmHandler.ArmState.SCORE);
+        driveHandler.setDesiredState(DriveHandler.DriveState.TELEOPDRIVE);
         break;
     }
     currentState = desiredState;

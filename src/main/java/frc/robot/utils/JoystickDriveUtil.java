@@ -32,4 +32,12 @@ public final class JoystickDriveUtil {
     double omega = MathUtil.applyDeadband(omegaInput, deadband);
     return omega * omega * Math.signum(omega);
   }
+
+  public static double scaleAxis(double input) {
+    double abs = Math.abs(input);
+    if (abs == 0.0) return 0.0;
+    abs = Math.min(abs, 1.0);
+    double scaled = Math.pow(Math.sin((Math.PI / 2.0) * abs), 2); // no offset
+    return Math.copySign(scaled, input);
+  }
 }

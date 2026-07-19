@@ -5,8 +5,22 @@ package frc.robot.utils.simulation;
 // https://github.com/Shenzhen-Robotics-Alliance/maple-sim/blob/main/templates/CTRE%20Swerve%20with%20maple-sim/src/main/java/frc/robot/utils/simulation/MapleSimSwerveDrivetrain.java
 //
 // This code is licensed under MIT license (see https://mit-license.org/)
+import static edu.wpi.first.units.Units.KilogramSquareMeters;
+import static edu.wpi.first.units.Units.Meters;
+import static edu.wpi.first.units.Units.RadiansPerSecond;
+import static edu.wpi.first.units.Units.Volts;
 
-import static edu.wpi.first.units.Units.*;
+import java.util.function.Supplier;
+
+import org.ironmaple.simulation.SimulatedArena;
+import org.ironmaple.simulation.drivesims.COTS;
+import org.ironmaple.simulation.drivesims.GyroSimulation;
+import org.ironmaple.simulation.drivesims.SwerveDriveSimulation;
+import org.ironmaple.simulation.drivesims.SwerveModuleSimulation;
+import org.ironmaple.simulation.drivesims.configs.DriveTrainSimulationConfig;
+import org.ironmaple.simulation.drivesims.configs.SwerveModuleSimulationConfig;
+import org.ironmaple.simulation.motorsims.SimulatedBattery;
+import org.ironmaple.simulation.motorsims.SimulatedMotorController;
 
 import com.ctre.phoenix6.configs.CANcoderConfiguration;
 import com.ctre.phoenix6.configs.Slot0Configs;
@@ -21,19 +35,17 @@ import com.ctre.phoenix6.sim.TalonFXSimState;
 import com.ctre.phoenix6.swerve.SwerveDrivetrain;
 import com.ctre.phoenix6.swerve.SwerveModule;
 import com.ctre.phoenix6.swerve.SwerveModuleConstants;
+
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.system.plant.DCMotor;
-import edu.wpi.first.units.measure.*;
+import edu.wpi.first.units.measure.Angle;
+import edu.wpi.first.units.measure.AngularVelocity;
+import edu.wpi.first.units.measure.Distance;
+import edu.wpi.first.units.measure.Mass;
+import edu.wpi.first.units.measure.Time;
+import edu.wpi.first.units.measure.Voltage;
 import edu.wpi.first.wpilibj.RobotBase;
-import org.ironmaple.simulation.SimulatedArena;
-import org.ironmaple.simulation.drivesims.COTS;
-import org.ironmaple.simulation.drivesims.SwerveDriveSimulation;
-import org.ironmaple.simulation.drivesims.SwerveModuleSimulation;
-import org.ironmaple.simulation.drivesims.configs.DriveTrainSimulationConfig;
-import org.ironmaple.simulation.drivesims.configs.SwerveModuleSimulationConfig;
-import org.ironmaple.simulation.motorsims.SimulatedBattery;
-import org.ironmaple.simulation.motorsims.SimulatedMotorController;
 
 /**
  *
@@ -49,6 +61,10 @@ public class MapleSimSwerveDrivetrain {
     private final Pigeon2SimState pigeonSim;
     private final SimSwerveModule[] simModules;
     public final SwerveDriveSimulation mapleSimDrive;
+
+    public static Supplier<GyroSimulation> ofPerfectGyro() {
+        return () -> new GyroSimulation(0, 0);
+    }
 
     /**
      *
@@ -87,7 +103,7 @@ public class MapleSimSwerveDrivetrain {
         DriveTrainSimulationConfig simulationConfig = DriveTrainSimulationConfig.Default()
                 .withRobotMass(robotMassWithBumpers)
                 .withBumperSize(bumperLengthX, bumperWidthY)
-                .withGyro(COTS.ofPigeon2())
+                .withGyro(ofPerfectGyro())
                 .withCustomModuleTranslations(moduleLocations)
                 .withSwerveModule(new SwerveModuleSimulationConfig(
                         driveMotorModel,
@@ -166,7 +182,7 @@ public class MapleSimSwerveDrivetrain {
                 AngularVelocity encoderVelocity) {
             talonFXSimState.setRawRotorPosition(encoderAngle);
             talonFXSimState.setRotorVelocity(encoderVelocity);
-            talonFXSimState.setSupplyVoltage(SimulatedBattery.getBatteryVoltage());
+            talonFXSimState.setSupplyVoltage(12.5);
 
             return talonFXSimState.getMotorVoltageMeasure();
         }
@@ -189,7 +205,7 @@ public class MapleSimSwerveDrivetrain {
                 AngularVelocity mechanismVelocity,
                 Angle encoderAngle,
                 AngularVelocity encoderVelocity) {
-            remoteCancoderSimState.setSupplyVoltage(SimulatedBattery.getBatteryVoltage());
+            remoteCancoderSimState.setSupplyVoltage(12.5);
             remoteCancoderSimState.setRawPosition(mechanismAngle);
             remoteCancoderSimState.setVelocity(mechanismVelocity);
 
@@ -246,6 +262,7 @@ public class MapleSimSwerveDrivetrain {
                 .withSteerMotorInverted(false)
                 // Disable CanCoder inversion
                 .withEncoderInverted(false)
+                .withCouplingGearRatio(0.0)
                 // Adjust steer motor PID gains for simulation
                 .withSteerMotorGains(new Slot0Configs()
                         .withKP(70)

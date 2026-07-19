@@ -1,4 +1,4 @@
-package frc.robot.subsystems;
+package frc.robot.subsystems.Drive;
 
 import static edu.wpi.first.units.Units.Inches;
 import static edu.wpi.first.units.Units.Pounds;
@@ -7,6 +7,8 @@ import static edu.wpi.first.units.Units.Seconds;
 import static edu.wpi.first.units.Units.Volts;
 
 import java.util.function.Supplier;
+
+import org.ironmaple.simulation.drivesims.SwerveDriveSimulation;
 
 import com.ctre.phoenix6.SignalLogger;
 import com.ctre.phoenix6.Utils;
@@ -19,6 +21,7 @@ import com.pathplanner.lib.config.RobotConfig;
 import com.pathplanner.lib.controllers.PPHolonomicDriveController;
 
 import dev.doglog.DogLog;
+import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.Matrix;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
@@ -32,9 +35,12 @@ import edu.wpi.first.wpilibj.Notifier;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Subsystem;
+import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine;
+import frc.robot.Constants;
 import frc.robot.generated.TunerConstants;
 import frc.robot.generated.TunerConstants.TunerSwerveDrivetrain;
+import frc.robot.utils.JoystickDriveUtil;
 import frc.robot.utils.simulation.MapleSimSwerveDrivetrain;
 
 /**
@@ -276,6 +282,10 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
         super.resetPose(pose);
     }
 
+    public SwerveDriveSimulation getSimDrivetrain(){
+        return mapleSimSwerveDrivetrain.mapleSimDrive;
+    }
+
     public Pose2d getSimPose(){
         return mapleSimSwerveDrivetrain.mapleSimDrive.getSimulatedDriveTrainPose();
     }
@@ -283,6 +293,38 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
     public ChassisSpeeds getSimChassisSpeed(){
         return mapleSimSwerveDrivetrain.mapleSimDrive.getDriveTrainSimulatedChassisSpeedsFieldRelative();
     }
+
+    CommandXboxController joystick;
+    double MaxSpeed;
+    double MaxAngularRate;
+    SwerveRequest.FieldCentric drive;
+    CommandSwerveDrivetrain drivetrain;
+    public void setParamsDT(CommandXboxController joystick, double MaxSpeed, double MaxAngularRate,  SwerveRequest.FieldCentric drive, CommandSwerveDrivetrain drivetrain){
+        this.joystick = joystick;
+        this.MaxSpeed = MaxSpeed;
+        this.MaxAngularRate = MaxAngularRate;
+        this.drive = drive;
+        this.drivetrain = drivetrain;
+    } 
+
+    public Command TeleopDrive(){
+    return applyRequest(() -> {
+        double xSpeed   = JoystickDriveUtil.scaleAxis(MathUtil.applyDeadband(-joystick.getLeftY(), Constants.DriveConstants.TranslationDeadband));
+        double ySpeed   = JoystickDriveUtil.scaleAxis(MathUtil.applyDeadband(-joystick.getLeftX(), Constants.DriveConstants.TranslationDeadband));
+        double rotSpeed = MathUtil.applyDeadband(-joystick.getRightX(), Constants.DriveConstants.TranslationDeadband);
+
+        DogLog.log("Drive/CommandedXSpeed", xSpeed * MaxSpeed);
+        DogLog.log("Drive/CommandedYSpeed", ySpeed * MaxSpeed);
+        DogLog.log("Drive/CommandedOmega", rotSpeed * MaxAngularRate);
+        DogLog.log("Drive/ActualOmega", getState().Speeds.omegaRadiansPerSecond);
+        
+            return drive
+            .withVelocityX(xSpeed * MaxSpeed)
+            .withVelocityY(ySpeed * MaxSpeed)
+            .withRotationalRate(rotSpeed * MaxAngularRate);
+    });
+    }
+
 
 
     @Override
@@ -295,9 +337,9 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
          * This ensures driving behavior doesn't change until an explicit disable event occurs during testing.
          */
 
-        
-         if (mapleSimSwerveDrivetrain != null)
-            DogLog.log("Drive/SimulationPose", mapleSimSwerveDrivetrain.mapleSimDrive.getSimulatedDriveTrainPose());
+        DogLog.log("Drive/Simedpose", mapleSimSwerveDrivetrain.mapleSimDrive.getSimulatedDriveTrainPose());
+    
+
         
 
         if (!m_hasAppliedOperatorPerspective || DriverStation.isDisabled()) {

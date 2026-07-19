@@ -14,18 +14,24 @@ import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
+import frc.robot.subsystems.Drive.CommandSwerveDrivetrain;
 import frc.robot.utils.simulation.crystalcaverns.CrystalOnFly;
 
 public class ShooterSubsystem extends SubsystemBase {
 
   CommandSwerveDrivetrain drivetrain;
+  IntakeSubsystem intake;
   /** Creates a new EESubsystem. */
-  public ShooterSubsystem(CommandSwerveDrivetrain drivetrain) {
+  public ShooterSubsystem(CommandSwerveDrivetrain drivetrain, IntakeSubsystem intake) {
   this.drivetrain = drivetrain;
+  this.intake = intake;
 }
 
   public void shoot(){
     GamePieceProjectile shotNote;
+    if (!intake.getNote()){
+      return;
+    }
 
     shotNote = new CrystalOnFly(
       drivetrain.getSimPose().getTranslation(),
