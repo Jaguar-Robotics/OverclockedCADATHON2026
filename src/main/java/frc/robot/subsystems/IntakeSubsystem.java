@@ -18,6 +18,7 @@ public class IntakeSubsystem extends SubsystemBase {
   SwerveDriveSimulation drivesim;
   SimulatedArena areana;
   IntakeSimulation intakesim;
+  public boolean NoteInEE;
   
  
 
@@ -39,6 +40,7 @@ public class IntakeSubsystem extends SubsystemBase {
   }
 
   public boolean getNote(){
+    NoteInEE = false;
     return intakesim.obtainGamePieceFromIntake();
   }
 

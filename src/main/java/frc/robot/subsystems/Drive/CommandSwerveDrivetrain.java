@@ -6,6 +6,7 @@ import static edu.wpi.first.units.Units.Second;
 import static edu.wpi.first.units.Units.Seconds;
 import static edu.wpi.first.units.Units.Volts;
 
+import java.util.Optional;
 import java.util.function.Supplier;
 
 import org.ironmaple.simulation.drivesims.SwerveDriveSimulation;
@@ -33,6 +34,7 @@ import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import edu.wpi.first.wpilibj.Notifier;
 import edu.wpi.first.wpilibj.Timer;
+import edu.wpi.first.wpilibj.smartdashboard.Field2d;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Subsystem;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
@@ -48,6 +50,7 @@ import frc.robot.utils.simulation.MapleSimSwerveDrivetrain;
  * command-based projects.
  */
 public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Subsystem {
+    public Field2d field = new Field2d();
     private static final double kSimLoopPeriod = 0.002; // 2 ms
     private Notifier m_simNotifier = null;
 
@@ -252,6 +255,51 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
         return m_sysIdRoutineToApply.dynamic(direction);
     }
 
+        /**
+     * Adds a vision measurement to the Kalman Filter. This will correct the odometry pose estimate
+     * while still accounting for measurement noise.
+     *
+     * @param visionRobotPoseMeters The pose of the robot as measured by the vision camera.
+     * @param timestampSeconds The timestamp of the vision measurement in seconds.
+     */
+    @Override
+    public void addVisionMeasurement(Pose2d visionRobotPoseMeters, double timestampSeconds) {
+        super.addVisionMeasurement(visionRobotPoseMeters, Utils.fpgaToCurrentTime(timestampSeconds));
+    }
+
+    /**
+     * Adds a vision measurement to the Kalman Filter. This will correct the odometry pose estimate
+     * while still accounting for measurement noise.
+     * <p>
+     * Note that the vision measurement standard deviations passed into this method
+     * will continue to apply to future measurements until a subsequent call to
+     * {@link #setVisionMeasurementStdDevs(Matrix)} or this method.
+     *
+     * @param visionRobotPoseMeters The pose of the robot as measured by the vision camera.
+     * @param timestampSeconds The timestamp of the vision measurement in seconds.
+     * @param visionMeasurementStdDevs Standard deviations of the vision pose measurement
+     *     in the form [x, y, theta]ᵀ, with units in meters and radians.
+     */
+    @Override
+    public void addVisionMeasurement(
+        Pose2d visionRobotPoseMeters,
+        double timestampSeconds,
+        Matrix<N3, N1> visionMeasurementStdDevs
+    ) {
+        super.addVisionMeasurement(visionRobotPoseMeters, Utils.fpgaToCurrentTime(timestampSeconds), visionMeasurementStdDevs);
+    }
+
+    /**
+     * Return the pose at a given timestamp, if the buffer is not empty.
+     *
+     * @param timestampSeconds The timestamp of the pose in seconds.
+     * @return The pose at the given timestamp (or Optional.empty() if the buffer is empty).
+     */
+    @Override
+    public Optional<Pose2d> samplePoseAt(double timestampSeconds) {
+        return super.samplePoseAt(Utils.fpgaToCurrentTime(timestampSeconds));
+    }
+
     private MapleSimSwerveDrivetrain mapleSimSwerveDrivetrain = null;
 
     private void startSimThread() {
@@ -325,6 +373,19 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
     });
     }
 
+    //BLINE SHI
+    public Pose2d getPose() {
+        return getState().Pose;
+    }
+
+    public ChassisSpeeds getRobotRelativeSpeeds() {
+        return getState().Speeds; // CTRE's SwerveDriveState.Speeds is already robot-relative
+    }
+
+    public void driveRobotRelative(ChassisSpeeds speeds) {
+        setControl(m_pathApplyRobotSpeeds.withSpeeds(speeds));
+    }
+
 
 
     @Override
@@ -338,6 +399,13 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
          */
 
         DogLog.log("Drive/Simedpose", mapleSimSwerveDrivetrain.mapleSimDrive.getSimulatedDriveTrainPose());
+        field.setRobotPose(getSimPose());
+
+        addVisionMeasurement(
+            getSimPose(),
+            Utils.getCurrentTimeSeconds(),
+            edu.wpi.first.math.VecBuilder.fill(0.001, 0.001, 0.001) // near-zero std devs — this is exact ground truth in sim, trust it fully
+        );
     
 
         

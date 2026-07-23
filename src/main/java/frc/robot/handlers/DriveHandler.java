@@ -4,32 +4,36 @@
 
 package frc.robot.handlers;
 
+import static edu.wpi.first.units.Units.Rotation;
+
 import com.ctre.phoenix6.swerve.SwerveRequest;
 
 import dev.doglog.DogLog;
 import edu.wpi.first.math.geometry.Pose2d;
-import edu.wpi.first.math.geometry.Rectangle2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
-import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.CommandScheduler;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
-import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
-import edu.wpi.first.wpilibj2.command.button.Trigger;
-import frc.robot.Constants;
 import frc.robot.handlers.StateSubsystem.State;
+import frc.robot.lib.BLine.FollowPath;
+import frc.robot.lib.BLine.Path;
 import frc.robot.subsystems.Drive.CommandSwerveDrivetrain;
+import frc.robot.subsystems.Drive.DTPshi;
 
 public class DriveHandler extends SubsystemBase {
 
     public enum DriveState implements State {
-        TELEOPDRIVE
+        TELEOPDRIVE,
+        DRIVETOPOINTLOW,
+        DRIVETOPOINTHIGH
   }
 
 
   private CommandSwerveDrivetrain drivetrain;
   private static DriveHandler instance;
+  FollowPath.Builder pathBuilder;
+  Command driveToPointCommand;
 
 
 
@@ -41,8 +45,9 @@ public class DriveHandler extends SubsystemBase {
   private DriveHandler() {
   }
 
-  public void initialize(CommandSwerveDrivetrain drivetrain){
+  public void initialize(CommandSwerveDrivetrain drivetrain, FollowPath.Builder pathBuilder){
     this.drivetrain = drivetrain;
+    this.pathBuilder = pathBuilder;
     update(); 
   }
 
@@ -80,6 +85,13 @@ public class DriveHandler extends SubsystemBase {
             case TELEOPDRIVE:
                 drivetrain.setDefaultCommand(drivetrain.TeleopDrive());
                 break;
+            case DRIVETOPOINTLOW:
+                Pose2d DTPoint = DTPshi.findClosestLowCave(drivetrain.getSimPose());
+                DogLog.log("Drive/DTPoint", DTPoint);
+                Path DTPPath = new Path(
+                  new Path.Waypoint(DTPoint));
+                Command driveToPointCommand = pathBuilder.build(DTPPath);
+                CommandScheduler.getInstance().schedule(driveToPointCommand);
             default:
                 drivetrain.setDefaultCommand(drivetrain.TeleopDrive());
                 break;

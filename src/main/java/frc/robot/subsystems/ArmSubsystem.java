@@ -6,11 +6,15 @@ import static edu.wpi.first.units.Units.Degree;
 import static edu.wpi.first.units.Units.Degrees;
 import static edu.wpi.first.units.Units.Inches;
 import static edu.wpi.first.units.Units.Meters;
+import static edu.wpi.first.units.Units.MetersPerSecond;
 import static edu.wpi.first.units.Units.Radians;
 import static edu.wpi.first.units.Units.RadiansPerSecond;
 import static edu.wpi.first.units.Units.Rotation;
 import static edu.wpi.first.units.Units.Rotations;
 import static edu.wpi.first.units.Units.RotationsPerSecond;
+
+import org.ironmaple.simulation.SimulatedArena;
+import org.ironmaple.simulation.gamepieces.GamePieceProjectile;
 
 import com.ctre.phoenix6.BaseStatusSignal;
 import com.ctre.phoenix6.CANBus;
@@ -23,10 +27,14 @@ import com.ctre.phoenix6.hardware.TalonFX;
 import com.ctre.phoenix6.signals.GravityTypeValue;
 import com.ctre.phoenix6.sim.ChassisReference;
 import com.ctre.phoenix6.sim.TalonFXSimState;
-import com.fasterxml.jackson.databind.ser.std.StdKeySerializers.EnumKeySerializer;
 
 import dev.doglog.DogLog;
+import edu.wpi.first.math.geometry.Pose3d;
+import edu.wpi.first.math.geometry.Rotation3d;
+import edu.wpi.first.math.geometry.Transform3d;
 import edu.wpi.first.math.system.plant.DCMotor;
+import edu.wpi.first.networktables.NetworkTableInstance;
+import edu.wpi.first.networktables.StructPublisher;
 import edu.wpi.first.units.measure.Angle;
 import edu.wpi.first.units.measure.AngularVelocity;
 import edu.wpi.first.units.measure.Current;
@@ -34,18 +42,21 @@ import edu.wpi.first.units.measure.Distance;
 import edu.wpi.first.wpilibj.Notifier;
 import edu.wpi.first.wpilibj.RobotController;
 import edu.wpi.first.wpilibj.simulation.SingleJointedArmSim;
-import edu.wpi.first.wpilibj.smartdashboard.Mechanism2d;
 import edu.wpi.first.wpilibj.smartdashboard.MechanismLigament2d;
-import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj.util.Color8Bit;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
+import frc.robot.Constants;
+import frc.robot.subsystems.Drive.CommandSwerveDrivetrain;
+import frc.robot.utils.simulation.crystalcaverns.CrystalOnFly;
 
 public class ArmSubsystem extends SubsystemBase {
     /** Position setpoints for the elevator. */
 
         /** The position target of the setpoint in angular units. */
+    private CommandSwerveDrivetrain drivetrain;
     private ElevatorSubsystem elevator;
+    private IntakeSubsystem intake;
     private Angle target;
     private MechanismLigament2d motor_id_35Mech2d;
 
@@ -131,8 +142,10 @@ public class ArmSubsystem extends SubsystemBase {
     
     }
 
-    public ArmSubsystem(ElevatorSubsystem elevator) {
+    public ArmSubsystem(ElevatorSubsystem elevator, CommandSwerveDrivetrain drivetrain, IntakeSubsystem intake) {
         this.elevator = elevator;
+        this.drivetrain = drivetrain;
+        this.intake = intake;
 
         motor_id_35Mech2d = elevator.getEndLigament()
         .append(new MechanismLigament2d("motor_id_35", kArmLength.in(Meters), -105));
@@ -238,6 +251,14 @@ public class ArmSubsystem extends SubsystemBase {
         return getPosition().isNear(target, Rotations.of(0.2));
     }
 
+    private final StructPublisher<Pose3d> heldGemstonePublisher =
+    NetworkTableInstance.getDefault()
+        .getStructTopic("FieldSimulation/Held Gemstone", Pose3d.struct)
+        .publish();
+    
+    private double armAngle = 0.0;
+    private Pose3d heldGemstonePose = new Pose3d();
+    Pose3d localGemstonePose = new Pose3d();
     @Override
     public void periodic() {
         /* refresh all status signals */
@@ -247,11 +268,50 @@ public class ArmSubsystem extends SubsystemBase {
             motor_id_35TorqueCurrent
         ); 
 
+        armAngle = motor_id_35Position.getValue().in(Degrees);
+        motor_id_35Mech2d.setAngle(armAngle);
         
-        motor_id_35Mech2d.setAngle(motor_id_35Position.getValue().in(Degrees));
-
-        DogLog.log("Arm/Angle", motor_id_35Position.getValue().in(Degree)); // temp debug
+        DogLog.log("Arm/Angle", armAngle); // temp debug
         DogLog.log("Arm/target", target);
+
+    // Always calculate local pose relative to robot frame
+            localGemstonePose = getArmPose3d(elevator).transformBy(Constants.ArmConstants.GemstoneOffset);
+
+            if (intake.NoteInEE) {
+
+                heldGemstonePose = new Pose3d(drivetrain.getSimPose())
+                    .transformBy(new Transform3d(
+                        localGemstonePose.getTranslation(), 
+                        localGemstonePose.getRotation()
+                    ));
+
+                // Publish the active pose to NetworkTables and DogLog
+                heldGemstonePublisher.set(heldGemstonePose);
+            } else {
+                // Option A: Publish an empty/null pose so AdvantageScope hides it
+                //heldGemstonePublisher.set(new Pose3d()); 
+                
+                // Option B: If your publisher supports clearing/unpublishing, do that instead
+                heldGemstonePublisher.set(new Pose3d()); 
+            }
+    }
+
+    GamePieceProjectile placedNote;
+
+    public void score(){
+        if (!intake.NoteInEE) {return;}
+        intake.getNote();
+        heldGemstonePublisher.set(null);
+        placedNote = new CrystalOnFly(
+            drivetrain.getSimPose().getTranslation(),
+            localGemstonePose.getTranslation().toTranslation2d(),
+            drivetrain.getSimChassisSpeed(),
+            heldGemstonePose.getRotation().toRotation2d(),
+            Meters.of(heldGemstonePose.getZ()),
+            MetersPerSecond.of(0),
+            Radians.of(heldGemstonePose.getRotation().getY()));
+       
+        SimulatedArena.getInstance().addGamePieceProjectile(placedNote);
     }
 
     private void startSimThread() {
@@ -285,5 +345,10 @@ public class ArmSubsystem extends SubsystemBase {
             );
         });
         simNotifier.startPeriodic(kSimLoopPeriod);
+    }
+
+    public Pose3d getArmPose3d(ElevatorSubsystem elevator){
+        //return new Pose3d(elevator.getEETranslation3d(), new Rotation3d(Degree.of(0.0), Degree.of(0), Degree.of(0.0)));
+        return new Pose3d(elevator.getEETranslation3d(), new Rotation3d(Degree.of(0.0), Degree.of(-armAngle), Degree.of(0.0))); //middle one should be armAngle
     }
 }

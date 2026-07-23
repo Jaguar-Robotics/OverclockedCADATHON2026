@@ -2,6 +2,7 @@
 package frc.robot.subsystems;
 
 import static edu.wpi.first.units.Units.Amps;
+import static edu.wpi.first.units.Units.Degree;
 import static edu.wpi.first.units.Units.Inches;
 import static edu.wpi.first.units.Units.Meters;
 import static edu.wpi.first.units.Units.Radians;
@@ -22,6 +23,11 @@ import com.ctre.phoenix6.sim.ChassisReference;
 import com.ctre.phoenix6.sim.TalonFXSimState;
 
 import dev.doglog.DogLog;
+import edu.wpi.first.math.geometry.Pose3d;
+import edu.wpi.first.math.geometry.Rotation3d;
+import edu.wpi.first.math.geometry.Translation3d;
+import edu.wpi.first.math.interpolation.InterpolatingTreeMap;
+import edu.wpi.first.math.interpolation.InverseInterpolator;
 import edu.wpi.first.math.system.plant.DCMotor;
 import edu.wpi.first.units.measure.Angle;
 import edu.wpi.first.units.measure.AngularVelocity;
@@ -40,9 +46,9 @@ import frc.robot.Constants;
 public class ElevatorSubsystem extends SubsystemBase {
     /** Position setpoints for the elevator. */
     public enum Setpoint {
-        IN((Constants.ElevatorConstants.In)), //0 rotations
-        Middle((Constants.ElevatorConstants.Mid)), // 3 rots
-        OUT((Constants.ElevatorConstants.Out)); //6 rots
+        IN((Constants.ElevatorConstants.In)), //ion use these lmao
+        Middle((Constants.ElevatorConstants.Mid)), 
+        OUT((Constants.ElevatorConstants.Out)); 
 
         /** The position target of the setpoint in angular units. */
         public final Angle target;
@@ -61,10 +67,10 @@ public class ElevatorSubsystem extends SubsystemBase {
 
     private static final int kNumConfigAttempts = 2;
 
-    private static final double kGearRatio = 5.5555555;
-    private static final Distance kDrumRadius = Inches.of(1.1);
+    private static final double kGearRatio = 7.81;
+    private static final Distance kDrumRadius = Inches.of(1.5);
     private static final Distance kMinHeight = Inches.of(32);
-    private static final Distance kMaxHeight = kMinHeight.plus(Inches.of(50));
+    private static final Distance kMaxHeight = kMinHeight.plus(Inches.of(43.5));
 
     /* leader and follower motors */
     private final CANBus kCANBus = new CANBus("Upper");
@@ -93,7 +99,7 @@ public class ElevatorSubsystem extends SubsystemBase {
 
     /* simulation */
     private final ElevatorSim elevatorSim_motor_id_35 = new ElevatorSim(
-        DCMotor.getKrakenX60(4),
+        DCMotor.getKrakenX60Foc(4),
         kGearRatio, 15.8, kDrumRadius.in(Meters),
         kMinHeight.in(Meters), kMaxHeight.in(Meters), false, kMinHeight.in(Meters)
     );
@@ -262,6 +268,7 @@ public class ElevatorSubsystem extends SubsystemBase {
         return getPosition().isNear(setpoint.target, Rotations.of(0.2));
     }
 
+    double elevatorLengthInches = 0.0;
     @Override
     public void periodic() {
         /* refresh all status signals */
@@ -271,12 +278,13 @@ public class ElevatorSubsystem extends SubsystemBase {
             motor_id_35TorqueCurrent
         ); 
 
+        elevatorLengthInches = motor_id_35Position.getValueAsDouble() * kDrumRadius.in(Inches) * 2 * Math.PI;
+
         motor_id_35Mech2d.setLength(
             kMinHeight.in(Meters) + motor_id_35Position.getValueAsDouble() * kDrumRadius.in(Meters) * 2 * Math.PI
         );
 
-        DogLog.log("Elevator/DebugLength", motor_id_35Position.getValueAsDouble() * kDrumRadius.in(Meters) * 2 * Math.PI); // temp debug
-        DogLog.log("Elevator/rawLengthMeters", elevatorSim_motor_id_35.getPositionMeters());
+        DogLog.log("Elevator/LengthInches", elevatorLengthInches);
     }
 
     private void startSimThread() {
@@ -310,5 +318,35 @@ public class ElevatorSubsystem extends SubsystemBase {
             );
         });
         simNotifier.startPeriodic(kSimLoopPeriod);
+    }
+
+    static InterpolatingTreeMap<Double, Pose3d> ElevatorMap =
+        new InterpolatingTreeMap<>(InverseInterpolator.forDouble(), Pose3d::interpolate);
+    static InterpolatingTreeMap<Double, Pose3d> ElevatorlilMap =
+        new InterpolatingTreeMap<>(InverseInterpolator.forDouble(), Pose3d::interpolate);
+  static InterpolatingTreeMap<Double, Translation3d> ElevatorEEMap =
+        new InterpolatingTreeMap<>(InverseInterpolator.forDouble(), Translation3d::interpolate);
+
+    static { //inches traveled, //x = left right, y = away/close, z = up/down?
+        ElevatorMap.put(0.0, new Pose3d(-13.556*0.0254, 0.0, 17.0205*0.0254, new Rotation3d(Degree.of(0.0), Degree.of(-25.767), Degree.of(0.0)))); //pose at "zero"
+        ElevatorMap.put(43.5, new Pose3d(25.618*0.0254, 0.0, 35.930*0.0254, new Rotation3d(Degree.of(0.0), Degree.of(-25.767), Degree.of(0.0)))); //pose at top
+
+        ElevatorlilMap.put(0.0, new Pose3d(-14.4565*0.0254, 0.0, 16.5855*0.0254, new Rotation3d(Degree.of(0.0), Degree.of(-25.767), Degree.of(0.0)))); //pose at "zero"
+        ElevatorlilMap.put(22.0, new Pose3d(5.355*0.0254, 0.0, 26.15*0.0254, new Rotation3d(Degree.of(0.0), Degree.of(-25.767), Degree.of(0.0)))); //pose at top
+
+        ElevatorEEMap.put(0.0, new Translation3d(13.424*0.0254, 0.0, 29.98*0.0254)); //pose at "zero"
+        ElevatorEEMap.put(43.5, new Translation3d(52.636*0.0254, 0.0, 48.971*0.0254)); //pose at top
+    }
+
+    public Pose3d getElevatorPose3d() {
+        return ElevatorMap.get(elevatorLengthInches);
+    }
+
+    public Pose3d getElevatorLilPose3d() {
+        return ElevatorlilMap.get(elevatorLengthInches);
+    }
+
+    public Translation3d getEETranslation3d(){
+        return ElevatorEEMap.get(elevatorLengthInches);
     }
 }

@@ -1,9 +1,12 @@
 package frc.robot.handlers;
 
+import dev.doglog.DogLog;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
+import frc.robot.lib.BLine.FollowPath;
 import frc.robot.subsystems.ArmSubsystem;
 import frc.robot.subsystems.ElevatorSubsystem;
+import frc.robot.subsystems.IntakeSubsystem;
 import frc.robot.subsystems.Drive.CommandSwerveDrivetrain;
 
 public class Superstructure extends SubsystemBase {
@@ -23,6 +26,7 @@ public class Superstructure extends SubsystemBase {
   private CommandSwerveDrivetrain drivetrain;
   private ElevatorSubsystem elevator;
   private ArmSubsystem arm;
+  private IntakeSubsystem intake;
   private CommandXboxController joystick;
   
   private final ElevatorHandler elevatorHandler = ElevatorHandler.getInstance();
@@ -44,21 +48,26 @@ public class Superstructure extends SubsystemBase {
     /**
    * Initialize superstructure with required subsystems
    */
-  public void initialize( CommandSwerveDrivetrain drivetrain, CommandXboxController joystick, ElevatorSubsystem elevator, ArmSubsystem arm) {
+  public void initialize( CommandSwerveDrivetrain drivetrain, CommandXboxController joystick, ElevatorSubsystem elevator, ArmSubsystem arm, FollowPath.Builder pathBuilder, IntakeSubsystem intake) {
       this.drivetrain = drivetrain;
       this.joystick = joystick;
       this.elevator = elevator;
       this.arm = arm;
-      driveHandler.initialize(drivetrain);
+      this.intake = intake;
+      driveHandler.initialize(drivetrain, pathBuilder);
       elevatorHandler.initialize(elevator);
       armhandler.initialize(elevator, arm);
   }
 
   private Superstructure() {}
 
+  public void setDriveState(DriveHandler.DriveState state){
+    driveHandler.setDesiredState(state);
+  }
+
   /** Call this from commands or joystick logic to set the next goal. */
   public void setDesiredState(SuperstructureState newState) {
-    System.out.print("SetDesiredState:" + newState);
+    DogLog.log("States/Superstructure state", currentState);
     if (desiredState != newState) {
       desiredState = newState;
       handleStateTransition();
@@ -68,20 +77,22 @@ public class Superstructure extends SubsystemBase {
   /** Handles transitions between states (2910-style logic). */
   private void handleStateTransition() {
     switch (desiredState) {
-      case IDLE:
-        elevatorHandler.setDesiredState(ElevatorHandler.ElevatorState.IN);
-        armhandler.setDesiredState(ArmHandler.ArmState.HANDOFF);
-        driveHandler.setDesiredState(DriveHandler.DriveState.TELEOPDRIVE);
-        break;
       case HANDOFF:
         elevatorHandler.setDesiredState(ElevatorHandler.ElevatorState.IN);
         armhandler.setDesiredState(ArmHandler.ArmState.HANDOFF);
-        driveHandler.setDesiredState(DriveHandler.DriveState.TELEOPDRIVE);
+        if (intake.hasNote()) {intake.NoteInEE = true;}
+        break;
+      case SCORELOW:
+        elevatorHandler.setDesiredState(ElevatorHandler.ElevatorState.IN);
+        armhandler.setDesiredState(ArmHandler.ArmState.SCORE);
         break;
       case SCOREHIGH:
         elevatorHandler.setDesiredState(ElevatorHandler.ElevatorState.OUT);
         armhandler.setDesiredState(ArmHandler.ArmState.SCORE);
-        driveHandler.setDesiredState(DriveHandler.DriveState.TELEOPDRIVE);
+        break;
+      case IDLE:
+        elevatorHandler.setDesiredState(ElevatorHandler.ElevatorState.IN);
+        armhandler.setDesiredState(ArmHandler.ArmState.HANDOFF);
         break;
     }
     currentState = desiredState;
@@ -89,7 +100,9 @@ public class Superstructure extends SubsystemBase {
 
   @Override
   public void periodic() {
-         
+         if(currentState.equals(SuperstructureState.IDLE) && intake.hasNote()){
+          setDesiredState(SuperstructureState.HANDOFF);
+         }
   }
   public SuperstructureState getCurrentState() {
     return currentState;

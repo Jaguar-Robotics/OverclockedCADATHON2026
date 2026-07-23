@@ -49,6 +49,6 @@ public class MineSim {
 
     public static boolean canDrop() {
         return DriverStation.isEnabled()
-                && Timer.getFPGATimestamp() - lastDropTime > 3;
+                && Timer.getFPGATimestamp() - lastDropTime > 1.5;
     }
 }

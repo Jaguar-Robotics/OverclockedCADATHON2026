@@ -8,34 +8,43 @@ import static edu.wpi.first.units.Units.MetersPerSecond;
 import static edu.wpi.first.units.Units.RadiansPerSecond;
 import static edu.wpi.first.units.Units.RotationsPerSecond;
 
+import java.util.Map;
+import java.util.function.BooleanSupplier;
+
 import org.ironmaple.simulation.SimulatedArena;
 
 import com.ctre.phoenix6.swerve.SwerveModule.DriveRequestType;
-import com.ctre.phoenix6.swerve.SwerveRequest;
-import com.pathplanner.lib.auto.AutoBuilder;
-import com.pathplanner.lib.auto.NamedCommands;
-import com.pathplanner.lib.commands.FollowPathCommand;
 
+import dev.doglog.DogLog;
+
+import com.ctre.phoenix6.swerve.SwerveRequest;
+
+import edu.wpi.first.math.controller.PIDController;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Pose3d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.networktables.NetworkTableInstance;
 import edu.wpi.first.networktables.StructArrayPublisher;
+import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
+import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.InstantCommand;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import edu.wpi.first.wpilibj2.command.button.RobotModeTriggers;
+import edu.wpi.first.wpilibj2.command.button.Trigger;
+import frc.robot.AutoStuff.BlineStuff;
 import frc.robot.generated.TunerConstants;
 import frc.robot.handlers.DriveHandler;
 import frc.robot.handlers.Superstructure;
+import frc.robot.handlers.Superstructure.SuperstructureState;
+import frc.robot.lib.BLine.FollowPath;
 import frc.robot.subsystems.ArmSubsystem;
 import frc.robot.subsystems.ElevatorSubsystem;
 import frc.robot.subsystems.IntakeSubsystem;
 import frc.robot.subsystems.ShooterSubsystem;
 import frc.robot.subsystems.Drive.CommandSwerveDrivetrain;
-import frc.robot.utils.simulation.MapleSimSwerveDrivetrain;
 import frc.robot.utils.simulation.crystalcaverns.CrystalCavernsArena;
 import frc.robot.utils.simulation.crystalcaverns.MineSim;
 
@@ -67,38 +76,51 @@ public class RobotContainer {
     public final IntakeSubsystem intake =  new IntakeSubsystem(drivetrain.getSimDrivetrain(), SimulatedArena.getInstance());
     public final ShooterSubsystem shooter = new ShooterSubsystem(drivetrain, intake); //only here because theres no shooterhandler
     private final ElevatorSubsystem elevator = new ElevatorSubsystem();
-    private final ArmSubsystem arm = new ArmSubsystem(elevator);
+    private final ArmSubsystem arm = new ArmSubsystem(elevator, drivetrain, intake);
     public final Superstructure superstructure = Superstructure.getInstance(); 
  
-    /* Path follower */
-    private final SendableChooser<Command> autoChooser;
+    private final SendableChooser<String> autoChooser = new SendableChooser<>();
+    
+
+    //BLINE
+    FollowPath.Builder pathBuilder = new FollowPath.Builder(
+    drivetrain,
+    drivetrain::getPose,
+    drivetrain::getRobotRelativeSpeeds,
+    drivetrain::driveRobotRelative,
+    new PIDController(2, 0.0, 0.1), //10, 7, 5
+    new PIDController(0.5, 0.0, 0.1),
+    new PIDController(5, 0.0, 0.1)
+        ).withTRatioBasedTranslationHandoffs(true);
+
+
+    private final Map<String, Command> autos_BLine = BlineStuff.buildAutos(pathBuilder, drivetrain);
+
+    final Trigger noButtonsHeld = new Trigger(() ->
+        !joystick.a().getAsBoolean() &&
+        !joystick.b().getAsBoolean() &&
+        !joystick.y().getAsBoolean() &&
+        !joystick.x().getAsBoolean() &&
+        !joystick.rightTrigger().getAsBoolean() &&
+        !joystick.rightBumper().getAsBoolean() &&
+        !joystick.leftTrigger().getAsBoolean() &&
+        !joystick.leftBumper().getAsBoolean()
+        );
+
+    
 
 
     public RobotContainer() {
 
-        Superstructure.getInstance().initialize(drivetrain, joystick, elevator, arm);
+        Superstructure.getInstance().initialize(drivetrain, joystick, elevator, arm, pathBuilder, intake);
         
-
         drivetrain.setParamsDT(joystick, MaxSpeed, MaxAngularRate, drive, drivetrain);
-        
-
-        configurePathPlanner();
-        autoChooser = AutoBuilder.buildAutoChooser("Tests");
-        SmartDashboard.putData("Auto Mode", autoChooser);
 
         configureBindings();
 
-        // Warmup PathPlanner to avoid Java pauses
-        FollowPathCommand.warmupCommand().schedule();
-
         SimulatedArena.getInstance().resetFieldForAuto();
-        drivetrain.resetPose(new Pose2d(2.0, 4.0, Rotation2d.fromDegrees(0)));
-    }
-
-
-    private void configurePathPlanner() {
-        NamedCommands.registerCommand("ExampleCommand",
-         new InstantCommand(() -> superstructure.setDesiredState(Superstructure.SuperstructureState.IDLE)));
+        drivetrain.resetPose(new Pose2d(10, 4.0, Rotation2d.fromDegrees(0)));
+        configureAutoChooser();
     }
 
 
@@ -131,21 +153,47 @@ public class RobotContainer {
         drivetrain.registerTelemetry(logger::telemeterize);
         
         //On true for pressing the Y button on joystick, it sets the superstructure state to idle
-        joystick.y().onTrue(new InstantCommand(() -> superstructure.setDesiredState(Superstructure.SuperstructureState.IDLE)));
-        joystick.a().onTrue(new InstantCommand(() -> superstructure.setDesiredState(Superstructure.SuperstructureState.SCOREHIGH)));
+        joystick.y().onTrue(new InstantCommand(() -> superstructure.setDesiredState(Superstructure.SuperstructureState.SCOREHIGH)));
+        joystick.x().onTrue(new InstantCommand(() -> superstructure.setDesiredState(Superstructure.SuperstructureState.SCORELOW)));
+        joystick.a().onTrue(new InstantCommand(() -> superstructure.setDesiredState(Superstructure.SuperstructureState.IDLE)));
+        joystick.leftBumper().onTrue(new InstantCommand(() -> superstructure.setDesiredState(Superstructure.SuperstructureState.HANDOFF)));
+        joystick.b().onTrue(new InstantCommand(() -> shooter.shoot()));
+        joystick.rightTrigger().onTrue(new InstantCommand(() -> arm.score()));
 
 
         joystick.leftTrigger().onTrue(new InstantCommand(() -> MineSim.drop(MineSim.getNearestStation(drivetrain.getSimPose()), false)));
         joystick.leftTrigger().onTrue(new InstantCommand(() -> intake.startIntake()));
+        joystick.leftTrigger().onTrue(new InstantCommand(() -> superstructure.setDesiredState(Superstructure.SuperstructureState.IDLE)));
         joystick.leftTrigger().onFalse(new InstantCommand(() -> intake.stopIntake()));
-        joystick.leftBumper().onTrue(new InstantCommand(() -> SimulatedArena.getInstance().clearGamePieces()));
-        joystick.rightBumper().onTrue(new InstantCommand(() -> shooter.shoot()));
+        joystick.start().onTrue(new InstantCommand(() -> SimulatedArena.getInstance().clearGamePieces()));
+        joystick.rightBumper().onTrue(new InstantCommand(() -> superstructure.setDriveState(DriveHandler.DriveState.DRIVETOPOINTLOW)));
+        joystick.rightBumper().onFalse(new InstantCommand(() -> superstructure.setDriveState(DriveHandler.DriveState.TELEOPDRIVE)));
+        
 
+        //noButtonsHeld.onTrue(new InstantCommand(() -> superstructure.setDesiredState(Superstructure.SuperstructureState.IDLE)));
     }        
 
     public Command getAutonomousCommand() {
-        /* Run the path selected from the auto chooser */
-        return autoChooser.getSelected();
+        String key = autoChooser.getSelected();
+        if (key == null) return Commands.none();
+
+        Command auto = autos_BLine.get(key);
+        return auto != null ? auto : Commands.none();
+    }
+
+    private void configureAutoChooser() {
+        boolean first = true;
+
+        for (String key : autos_BLine.keySet()) {
+            if (first) {
+                autoChooser.setDefaultOption(key, key);
+                first = false;
+            } else {
+                autoChooser.addOption(key, key);
+            }
+        }
+
+        SmartDashboard.putData("Autonomous Mode", autoChooser);
     }
 
     private final StructArrayPublisher<Pose3d> crystalsPublisher =
@@ -161,5 +209,7 @@ public class RobotContainer {
     public void updateSimulation() {
         crystalsPublisher.set(SimulatedArena.getInstance().getGamePiecesArrayByType("Crystal"));
         gemstonesPublisher.set(SimulatedArena.getInstance().getGamePiecesArrayByType("Gemstone"));
+        DogLog.log("Zeroed Components", new Pose3d[] {new Pose3d(), new Pose3d(), new Pose3d()}); //last stage of EE, mid stage EE, arm
+        DogLog.log("Final component poses", new Pose3d[] {elevator.getElevatorPose3d(), elevator.getElevatorLilPose3d(), arm.getArmPose3d(elevator)}); //last stage of EE, midstage Ee, arm
     }
 }

@@ -29,7 +29,7 @@ public class ShooterSubsystem extends SubsystemBase {
 
   public void shoot(){
     GamePieceProjectile shotNote;
-    if (!intake.getNote()){
+    if (!intake.getNote() || intake.NoteInEE){
       return;
     }
 

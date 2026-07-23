@@ -1,0 +1,3 @@
+0 - final stage of elevator
+1 - mid stage of elevator
+2 - arm
