@@ -20,8 +20,9 @@ import edu.wpi.first.units.measure.Distance;
 public class Constants {
         public static abstract class ElevatorConstants{
             public static final Distance In = Inches.of(0);
-            public static final Distance Mid = Inches.of(20);
-            public static final Distance Out = Inches.of(43.5);
+            public static final Distance ScoreOut = Inches.of(23);
+            public static final Distance ClimbIn = Inches.of(20);
+            public static final Distance ClimbOut = Inches.of(28);
 
         }
 
@@ -61,6 +62,20 @@ public class Constants {
                     new Pose2d(12.955, 5.555 , Rotation2d.fromDegrees(-112.15)), //bot mid right
                     new Pose2d(11.755, 5.588 , Rotation2d.fromDegrees(-67.25)), //top mid right
                     new Pose2d(10.881, 4.715 , Rotation2d.fromDegrees(-22.5))
+                };
+
+                public static final Pose2d[] ArrHighCaveDTPPoses = {
+                    new Pose2d(10.94, 3.425, Rotation2d.fromDegrees(22.5)),  
+                    new Pose2d(11.667, 2.708, Rotation2d.fromDegrees(67.77)),  
+                    new Pose2d(13.058, 2.710, Rotation2d.fromDegrees(112.5)),  
+                    new Pose2d(13.755, 3.392, Rotation2d.fromDegrees(155.5)),  
+                    
+                    new Pose2d(10.937, 4.831, Rotation2d.fromDegrees(-22.5)),  //botmidleft
+                    new Pose2d(11.604, 5.512, Rotation2d.fromDegrees(-67.77)),  //botmidleft
+                    new Pose2d(13.066, 5.518, Rotation2d.fromDegrees(-112.5)),  //botmidleft
+                    new Pose2d(13.763, 4.828, Rotation2d.fromDegrees(-155.5)),  //botmidleft
+                    
+
                 };
         }
 }

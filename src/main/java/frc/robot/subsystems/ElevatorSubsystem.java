@@ -50,8 +50,8 @@ public class ElevatorSubsystem extends SubsystemBase {
     /** Position setpoints for the elevator. */
     public enum Setpoint {
         IN((Constants.ElevatorConstants.In)), //ion use these lmao
-        Middle((Constants.ElevatorConstants.Mid)), 
-        OUT((Constants.ElevatorConstants.Out)); 
+        Middle((Constants.ElevatorConstants.ClimbIn)), 
+        OUT((Constants.ElevatorConstants.ClimbOut)); 
 
         /** The position target of the setpoint in angular units. */
         public final Angle target;
@@ -290,7 +290,7 @@ public class ElevatorSubsystem extends SubsystemBase {
         return Inches.of(0).isNear(getPositionDist(), Inches.of(2));
     }
 
-    double elevatorLengthInches = 0.0;
+    public double elevatorLengthInches = 0.0;
     @Override
     public void periodic() {
         /* refresh all status signals */

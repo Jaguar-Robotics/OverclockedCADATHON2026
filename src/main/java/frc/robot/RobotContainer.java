@@ -32,8 +32,8 @@ import edu.wpi.first.wpilibj2.command.button.RobotModeTriggers;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
 import frc.robot.AutoStuff.BlineStuff;
 import frc.robot.generated.TunerConstants;
-import frc.robot.handlers.DriveHandler;
-import frc.robot.handlers.Superstructure;
+import frc.robot.handlers.Superstructure.SuperstructureState;
+import frc.robot.handlers.*;
 import frc.robot.lib.BLine.FollowPath;
 import frc.robot.subsystems.ArmSubsystem;
 import frc.robot.subsystems.ElevatorSubsystem;
@@ -91,14 +91,8 @@ public class RobotContainer {
 
     private final Map<String, Command> autos_BLine = BlineStuff.buildAutos(pathBuilder, drivetrain);
 
-    final Trigger noButtonsHeld = new Trigger(() ->
-        !joystick.a().getAsBoolean() &&
-        !joystick.b().getAsBoolean() &&
-        !joystick.y().getAsBoolean() &&
-        !joystick.x().getAsBoolean() &&
-        !joystick.rightTrigger().getAsBoolean() &&
+    final Trigger noBumpersHeld = new Trigger(() ->
         !joystick.rightBumper().getAsBoolean() &&
-        !joystick.leftTrigger().getAsBoolean() &&
         !joystick.leftBumper().getAsBoolean()
         );
 
@@ -151,7 +145,6 @@ public class RobotContainer {
         joystick.y().onTrue(new InstantCommand(() -> superstructure.setDesiredState(Superstructure.SuperstructureState.HANDOFFHIGH)));
         joystick.x().onTrue(new InstantCommand(() -> superstructure.setDesiredState(Superstructure.SuperstructureState.HANDOFFLOW)));
         joystick.a().onTrue(new InstantCommand(() -> superstructure.setDesiredState(Superstructure.SuperstructureState.IDLE)));
-        joystick.leftBumper().onTrue(new InstantCommand(() -> superstructure.setDesiredState(Superstructure.SuperstructureState.HANDOFFLOW)));
         joystick.b().onTrue(new InstantCommand(() -> superstructure.setDesiredState(Superstructure.SuperstructureState.HANDOFFSHOOTER)));
         joystick.rightTrigger().onTrue(new InstantCommand(() -> arm.score()));
 
@@ -162,12 +155,19 @@ public class RobotContainer {
         joystick.leftTrigger().onFalse(new InstantCommand(() -> intake.stopIntake()));
         joystick.start().onTrue(new InstantCommand(() -> SimulatedArena.getInstance().clearGamePieces()));
 
-        joystick.back().onTrue(new InstantCommand(() -> drivetrain.resetPose(new Pose2d(10, 4.0, Rotation2d.fromDegrees(0)))));
+        joystick.back().onTrue(new InstantCommand(() -> drivetrain.setClimbVisualizationEnabled(false, elevator)));
         joystick.rightBumper().onTrue(new InstantCommand(() -> superstructure.setDriveState(DriveHandler.DriveState.DRIVETOPOINTLOW)));
-        joystick.rightBumper().onFalse(new InstantCommand(() -> superstructure.setDriveState(DriveHandler.DriveState.TELEOPDRIVE)));
+        joystick.leftBumper().onTrue(new InstantCommand(() -> superstructure.setDriveState(DriveHandler.DriveState.DRIVETOPOINTHIGH)));
+
+        joystick.povDown().onTrue(new InstantCommand(() -> {
+            SuperstructureState next = superstructure.getCurrentState() == SuperstructureState.CLIMBENGADGE
+                ? SuperstructureState.CLIMBED
+                : SuperstructureState.CLIMBENGADGE;
+            superstructure.setDesiredState(next);
+        }));
         
 
-        //noButtonsHeld.onTrue(new InstantCommand(() -> superstructure.setDesiredState(Superstructure.SuperstructureState.IDLE)));
+        noBumpersHeld.onTrue(new InstantCommand(() -> superstructure.setDriveState(DriveHandler.DriveState.TELEOPDRIVE)));
     }        
 
     public Command getAutonomousCommand() {
@@ -208,5 +208,6 @@ public class RobotContainer {
         gemstonesPublisher.set(SimulatedArena.getInstance().getGamePiecesArrayByType("Gemstone"));
         DogLog.log("Zeroed Components", new Pose3d[] {new Pose3d(), new Pose3d(), new Pose3d()}); //last stage of EE, mid stage EE, arm
         DogLog.log("Final component poses", new Pose3d[] {elevator.getElevatorPose3d(), elevator.getElevatorLilPose3d(), arm.getArmPose3d(elevator)}); //last stage of EE, midstage Ee, arm
+        DogLog.log("Climb/VisualPose", drivetrain.updateClimbVisualization(elevator));
     }
 }

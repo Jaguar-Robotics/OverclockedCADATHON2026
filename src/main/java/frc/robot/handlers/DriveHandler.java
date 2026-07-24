@@ -81,6 +81,7 @@ public class DriveHandler extends SubsystemBase {
     update();
   }
 
+  Pose2d DTPoint = new Pose2d();
     public void update() {
     if (drivetrain.getCurrentCommand() != null) {
         CommandScheduler.getInstance().cancel(drivetrain.getCurrentCommand());
@@ -90,13 +91,23 @@ public class DriveHandler extends SubsystemBase {
                 drivetrain.setDefaultCommand(drivetrain.TeleopDrive());
                 break;
             case DRIVETOPOINTLOW:
-                Pose2d DTPoint = DTPshi.findClosestLowCave(drivetrain.getSimPose());
+                DTPoint = DTPshi.findClosestLowCave(drivetrain.getSimPose());
                 DogLog.log("Drive/DTPoint", DTPoint);
-                Path DTPPath = new Path(
+                Path DTPPathLow = new Path(
                   new Path.Waypoint(DTPoint));
-                DTPPath.setPathConstraints(DTPconstraints); //slow it down 
-                Command driveToPointCommand = pathBuilder.build(DTPPath);
+                DTPPathLow.setPathConstraints(DTPconstraints); //slow it down 
+                Command driveToPointCommand = pathBuilder.build(DTPPathLow);
                 CommandScheduler.getInstance().schedule(driveToPointCommand);
+                break;
+            case DRIVETOPOINTHIGH:
+                DTPoint = DTPshi.findClosestHighCave(drivetrain.getSimPose());
+                DogLog.log("Drive/DTPoint", DTPoint);
+                Path DTPPathHigh = new Path(
+                  new Path.Waypoint(DTPoint));
+                DTPPathHigh.setPathConstraints(DTPconstraints); //slow it down 
+                Command driveToPointCommandHigh = pathBuilder.build(DTPPathHigh);
+                CommandScheduler.getInstance().schedule(driveToPointCommandHigh);
+                break;
             default:
                 drivetrain.setDefaultCommand(drivetrain.TeleopDrive());
                 break;

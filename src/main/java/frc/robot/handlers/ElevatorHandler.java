@@ -12,8 +12,9 @@ import frc.robot.subsystems.ElevatorSubsystem;
 public class ElevatorHandler extends SubsystemBase implements StateSubsystem {
 
     public enum ElevatorState implements State {
-      OUT,
-      MID,
+      CLIMBOUT,
+      CLIMBIN,
+      SCOREOUT,
       IN,
       BRAKE
   }
@@ -52,11 +53,14 @@ public class ElevatorHandler extends SubsystemBase implements StateSubsystem {
     public void update() {
       if((currentState != desiredState)){
         switch (desiredState) {
-            case OUT:
-                elevator.goToSetpoint(Constants.ElevatorConstants.Out);
+            case CLIMBOUT:
+                elevator.goToSetpoint(Constants.ElevatorConstants.ClimbOut);
                 break;
-            case MID:
-                elevator.goToSetpoint(Constants.ElevatorConstants.Mid);
+            case CLIMBIN:
+                elevator.goToSetpoint(Constants.ElevatorConstants.ClimbIn);
+                break;
+            case SCOREOUT:
+                elevator.goToSetpoint(Constants.ElevatorConstants.ScoreOut);
                 break;
             case IN:
                 elevator.goToSetpoint(Constants.ElevatorConstants.In);

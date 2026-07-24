@@ -117,10 +117,19 @@ public class Superstructure extends SubsystemBase {
         intake.NoteinIntake = false;
         break;
       case SCOREHIGH:
-        elevatorHandler.setDesiredState(ElevatorHandler.ElevatorState.OUT);
+        elevatorHandler.setDesiredState(ElevatorHandler.ElevatorState.SCOREOUT);
         armhandler.setDesiredState(ArmHandler.ArmState.SCORE);
         intake.NoteInEE = true;
         intake.NoteinIntake = false;
+        break;
+      case CLIMBENGADGE:
+        elevatorHandler.setDesiredState(ElevatorHandler.ElevatorState.CLIMBOUT);
+        armhandler.setDesiredState(ArmHandler.ArmState.CLIMB);
+        break;
+      case CLIMBED:
+        elevatorHandler.setDesiredState(ElevatorHandler.ElevatorState.CLIMBIN);
+        armhandler.setDesiredState(ArmHandler.ArmState.CLIMB);
+        drivetrain.setClimbVisualizationEnabled(true, elevator);
         break;
       case IDLE:
         elevatorHandler.setDesiredState(ElevatorHandler.ElevatorState.IN);
@@ -145,12 +154,12 @@ public class Superstructure extends SubsystemBase {
     }
     if (currentState.equals(SuperstructureState.HANDOFFSHOOTER) && arm.readyToHandoff() && elevator.readyToHandoff() && intake.NoteInEE){
       intake.NoteInEE = false;
-      setDesiredState(SuperstructureState.HANDOFFSHOOTER);
+      //setDesiredState(SuperstructureState.HANDOFFSHOOTER);
     }
     if (currentState.equals(SuperstructureState.IDLE) && arm.readyToHandoff() && elevator.readyToHandoff() && intake.NoteInEE){
       intake.NoteInEE = false;
     }
-    if (currentState.equals(SuperstructureState.HANDOFFSHOOTER) && arm.awayFromShooter() && elevator.isAtSetpoint() && intake.NoteinIntake){
+    if (currentState.equals(SuperstructureState.HANDOFFSHOOTER) && arm.awayFromShooter() && elevator.isAtSetpoint() && intake.NoteinIntake && joystick.b().getAsBoolean()){
       shooter.shoot();
     }
   }

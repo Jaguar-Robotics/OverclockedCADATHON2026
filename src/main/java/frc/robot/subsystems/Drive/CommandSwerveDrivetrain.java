@@ -25,8 +25,8 @@ import dev.doglog.DogLog;
 import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.Matrix;
 import edu.wpi.first.math.geometry.Pose2d;
+import edu.wpi.first.math.geometry.Pose3d;
 import edu.wpi.first.math.geometry.Rotation2d;
-import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.math.numbers.N1;
 import edu.wpi.first.math.numbers.N3;
@@ -43,6 +43,7 @@ import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine;
 import frc.robot.Constants;
 import frc.robot.generated.TunerConstants;
 import frc.robot.generated.TunerConstants.TunerSwerveDrivetrain;
+import frc.robot.subsystems.ElevatorSubsystem;
 import frc.robot.utils.JoystickDriveUtil;
 import frc.robot.utils.simulation.MapleSimSwerveDrivetrain;
 
@@ -366,6 +367,7 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
         DogLog.log("Drive/CommandedYSpeed", ySpeed * MaxSpeed);
         DogLog.log("Drive/CommandedOmega", rotSpeed * MaxAngularRate);
         DogLog.log("Drive/ActualOmega", getState().Speeds.omegaRadiansPerSecond);
+
         
             return drive
             .withVelocityX(xSpeed * MaxSpeed)
@@ -374,25 +376,10 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
     });
     } 
 
-/*     public Command TeleopDrive(){
-    return applyRequest(() -> {
-        Translation2d linearVelocity = JoystickDriveUtil.getLinearVelocityFromJoysticks(
-            -joystick.getLeftY(), -joystick.getLeftX(), Constants.DriveConstants.TranslationDeadband);
-        double rotSpeed = JoystickDriveUtil.getOmegaFromJoysticks(
-            -joystick.getRightX(), Constants.DriveConstants.RotationDeadband);
+    public Command stopModules() {
+        return applyRequest(() -> new SwerveRequest.Idle());
+    }
 
-        double vx = linearVelocity.getX() * MaxSpeed;
-        double vy = linearVelocity.getY() * MaxSpeed;
-        double omega = rotSpeed * MaxAngularRate;
-
-        DogLog.log("Drive/CommandedXSpeed", vx);
-        DogLog.log("Drive/CommandedYSpeed", vy);
-        DogLog.log("Drive/CommandedOmega", omega);
-        DogLog.log("Drive/ActualOmega", getState().Speeds.omegaRadiansPerSecond);
-
-        return drive.withVelocityX(vx).withVelocityY(vy).withRotationalRate(omega);
-    });
-    } */
 
     //BLINE SHI
     public Pose2d getPose() {
@@ -405,6 +392,46 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
 
     public void driveRobotRelative(ChassisSpeeds speeds) {
         setControl(m_pathApplyRobotSpeeds.withSpeeds(speeds));
+    }
+
+    private static final double kClimbAngleRadians = Math.toRadians(-25.767);
+    private boolean climbVisualizationEnabled = false;
+    private Pose3d climbVisualAnchorPose = new Pose3d();
+    private double climbVisualStartHeightInches = 0.0;
+    private Pose3d climbVisualCurrentPose = new Pose3d();
+
+    public void setClimbVisualizationEnabled(boolean enabled, ElevatorSubsystem elevator) {
+    if (enabled && !climbVisualizationEnabled) {
+        // Rising edge — just turned on, capture the anchor
+        climbVisualAnchorPose = new Pose3d(getSimPose());
+        climbVisualStartHeightInches = elevator.elevatorLengthInches;
+        climbVisualCurrentPose = climbVisualAnchorPose;
+    }
+    climbVisualizationEnabled = enabled;
+}
+
+    /**
+     * Call every loop. Returns the shifted pose while enabled, or the last computed
+     * pose (frozen) while disabled.
+     */
+    public Pose3d updateClimbVisualization(ElevatorSubsystem elevator) {
+        if (!climbVisualizationEnabled) {
+            return climbVisualCurrentPose; // frozen at whatever it last was
+        }
+
+        double retractedInches = climbVisualStartHeightInches - elevator.elevatorLengthInches;
+        double retractedMeters = retractedInches * 0.0254;
+
+        double dx = retractedMeters * Math.cos(kClimbAngleRadians);
+        double dz = retractedMeters * Math.sin(kClimbAngleRadians);
+
+        climbVisualCurrentPose = new Pose3d(
+            climbVisualAnchorPose.getX() - dx,
+            climbVisualAnchorPose.getY(),
+            climbVisualAnchorPose.getZ() - dz,
+            climbVisualAnchorPose.getRotation()
+        );
+        return climbVisualCurrentPose;
     }
 
 

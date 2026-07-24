@@ -18,4 +18,20 @@ public class DTPshi {
 
         return closestPose;
     }
+
+
+    public static Pose2d findClosestHighCave(Pose2d currentPose){
+        Pose2d closestPose = new Pose2d();
+        double closestDist = Double.MAX_VALUE;
+
+        for (Pose2d pose : Constants.FieldConstants.ArrHighCaveDTPPoses){
+            double curDist = currentPose.getTranslation().getDistance(pose.getTranslation());
+            if (curDist < closestDist){
+                closestPose = pose;
+                closestDist = curDist; // <-- the missing line
+            }
+        }
+
+        return closestPose;
+    }
 }
