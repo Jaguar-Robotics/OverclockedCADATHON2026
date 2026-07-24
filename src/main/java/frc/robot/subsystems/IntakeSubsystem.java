@@ -4,30 +4,44 @@
 
 package frc.robot.subsystems;
 
+import static edu.wpi.first.units.Units.Inches;
+
 import org.ironmaple.simulation.IntakeSimulation;
 import org.ironmaple.simulation.SimulatedArena;
 import org.ironmaple.simulation.drivesims.SwerveDriveSimulation;
-import static edu.wpi.first.units.Units.*;
-
 
 import dev.doglog.DogLog;
+import edu.wpi.first.math.geometry.Pose3d;
+import edu.wpi.first.math.geometry.Transform3d;
+import edu.wpi.first.networktables.NetworkTableInstance;
+import edu.wpi.first.networktables.StructPublisher;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
+import frc.robot.Constants;
+import frc.robot.subsystems.Drive.CommandSwerveDrivetrain;
 
 public class IntakeSubsystem extends SubsystemBase {
 
   SwerveDriveSimulation drivesim;
+  CommandSwerveDrivetrain drivetrain;
   SimulatedArena areana;
   IntakeSimulation intakesim;
-  public boolean NoteInEE;
+  public boolean NoteInEE = false;
+  public boolean NoteinIntake = false;
   
  
 
-  public IntakeSubsystem(SwerveDriveSimulation drivesim, SimulatedArena areana) {
+  public IntakeSubsystem(SwerveDriveSimulation drivesim, SimulatedArena areana, CommandSwerveDrivetrain drivetrain) {
     this.drivesim = drivesim;
     this.areana =  areana;
+    this.drivetrain = drivetrain;
 
-    intakesim = IntakeSimulation.InTheFrameIntake("Crystal", drivesim, Meters.of(0.65), IntakeSimulation.IntakeSide.BACK, 1);
+    intakesim = IntakeSimulation.InTheFrameIntake("Crystal", drivesim, Inches.of(25.5), IntakeSimulation.IntakeSide.BACK, 1);
   }
+
+    public final StructPublisher<Pose3d> heldGemstonePublisher =
+    NetworkTableInstance.getDefault()
+        .getStructTopic("FieldSimulation/Held Gemstone", Pose3d.struct)
+        .publish();
 
   
 
@@ -41,6 +55,7 @@ public class IntakeSubsystem extends SubsystemBase {
 
   public boolean getNote(){
     NoteInEE = false;
+    heldGemstonePublisher.set(new Pose3d()); 
     return intakesim.obtainGamePieceFromIntake();
   }
 
@@ -48,9 +63,21 @@ public class IntakeSubsystem extends SubsystemBase {
     return intakesim.getGamePiecesAmount() != 0;
   }
 
+  public void upDateIntakes(){
+    if (intakesim.getGamePiecesAmount() != 0 && !NoteInEE){
+      NoteinIntake = true;
+    }
+    else {NoteinIntake = false;}
+  }
+
   @Override
   public void periodic() {
+    upDateIntakes();
     DogLog.log("HasCrystal", hasNote());
-    // This method will be called once per scheduler run
+    DogLog.log("Intake/NoteInEE", NoteInEE);
+    DogLog.log("Intake/NoteInIntake", NoteinIntake);
+    if (NoteinIntake){
+      heldGemstonePublisher.set(new Pose3d(drivetrain.getSimPose()).transformBy(new Transform3d(Constants.IntakeConstants.GemstoneOffset.getTranslation(), Constants.IntakeConstants.GemstoneOffset.getRotation())));
+    }
   }
 }

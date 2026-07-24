@@ -9,23 +9,19 @@ import static edu.wpi.first.units.Units.RadiansPerSecond;
 import static edu.wpi.first.units.Units.RotationsPerSecond;
 
 import java.util.Map;
-import java.util.function.BooleanSupplier;
 
 import org.ironmaple.simulation.SimulatedArena;
 
 import com.ctre.phoenix6.swerve.SwerveModule.DriveRequestType;
-
-import dev.doglog.DogLog;
-
 import com.ctre.phoenix6.swerve.SwerveRequest;
 
+import dev.doglog.DogLog;
 import edu.wpi.first.math.controller.PIDController;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Pose3d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.networktables.NetworkTableInstance;
 import edu.wpi.first.networktables.StructArrayPublisher;
-import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
@@ -38,7 +34,6 @@ import frc.robot.AutoStuff.BlineStuff;
 import frc.robot.generated.TunerConstants;
 import frc.robot.handlers.DriveHandler;
 import frc.robot.handlers.Superstructure;
-import frc.robot.handlers.Superstructure.SuperstructureState;
 import frc.robot.lib.BLine.FollowPath;
 import frc.robot.subsystems.ArmSubsystem;
 import frc.robot.subsystems.ElevatorSubsystem;
@@ -73,7 +68,7 @@ public class RobotContainer {
 
     public final CommandSwerveDrivetrain drivetrain = TunerConstants.createDrivetrain();
     //public final ElevatorSubsystem elevator = new ElevatorSubsystem();
-    public final IntakeSubsystem intake =  new IntakeSubsystem(drivetrain.getSimDrivetrain(), SimulatedArena.getInstance());
+    public final IntakeSubsystem intake =  new IntakeSubsystem(drivetrain.getSimDrivetrain(), SimulatedArena.getInstance(), drivetrain);
     public final ShooterSubsystem shooter = new ShooterSubsystem(drivetrain, intake); //only here because theres no shooterhandler
     private final ElevatorSubsystem elevator = new ElevatorSubsystem();
     private final ArmSubsystem arm = new ArmSubsystem(elevator, drivetrain, intake);
@@ -88,9 +83,9 @@ public class RobotContainer {
     drivetrain::getPose,
     drivetrain::getRobotRelativeSpeeds,
     drivetrain::driveRobotRelative,
-    new PIDController(2, 0.0, 0.1), //10, 7, 5
-    new PIDController(0.5, 0.0, 0.1),
-    new PIDController(5, 0.0, 0.1)
+    new PIDController(5, 0.0, 1.5), //10, 7, 5
+    new PIDController(2, 0.0, 0.1),
+    new PIDController(7, 0.0, 2)
         ).withTRatioBasedTranslationHandoffs(true);
 
 
@@ -112,14 +107,14 @@ public class RobotContainer {
 
     public RobotContainer() {
 
-        Superstructure.getInstance().initialize(drivetrain, joystick, elevator, arm, pathBuilder, intake);
+        Superstructure.getInstance().initialize(drivetrain, joystick, elevator, arm, pathBuilder, intake, shooter);
         
         drivetrain.setParamsDT(joystick, MaxSpeed, MaxAngularRate, drive, drivetrain);
 
         configureBindings();
 
         SimulatedArena.getInstance().resetFieldForAuto();
-        drivetrain.resetPose(new Pose2d(10, 4.0, Rotation2d.fromDegrees(0)));
+        drivetrain.resetPose(new Pose2d(10, 4.0, Rotation2d.fromDegrees(0))); 
         configureAutoChooser();
     }
 
@@ -153,11 +148,11 @@ public class RobotContainer {
         drivetrain.registerTelemetry(logger::telemeterize);
         
         //On true for pressing the Y button on joystick, it sets the superstructure state to idle
-        joystick.y().onTrue(new InstantCommand(() -> superstructure.setDesiredState(Superstructure.SuperstructureState.SCOREHIGH)));
-        joystick.x().onTrue(new InstantCommand(() -> superstructure.setDesiredState(Superstructure.SuperstructureState.SCORELOW)));
+        joystick.y().onTrue(new InstantCommand(() -> superstructure.setDesiredState(Superstructure.SuperstructureState.HANDOFFHIGH)));
+        joystick.x().onTrue(new InstantCommand(() -> superstructure.setDesiredState(Superstructure.SuperstructureState.HANDOFFLOW)));
         joystick.a().onTrue(new InstantCommand(() -> superstructure.setDesiredState(Superstructure.SuperstructureState.IDLE)));
-        joystick.leftBumper().onTrue(new InstantCommand(() -> superstructure.setDesiredState(Superstructure.SuperstructureState.HANDOFF)));
-        joystick.b().onTrue(new InstantCommand(() -> shooter.shoot()));
+        joystick.leftBumper().onTrue(new InstantCommand(() -> superstructure.setDesiredState(Superstructure.SuperstructureState.HANDOFFLOW)));
+        joystick.b().onTrue(new InstantCommand(() -> superstructure.setDesiredState(Superstructure.SuperstructureState.HANDOFFSHOOTER)));
         joystick.rightTrigger().onTrue(new InstantCommand(() -> arm.score()));
 
 
@@ -166,6 +161,8 @@ public class RobotContainer {
         joystick.leftTrigger().onTrue(new InstantCommand(() -> superstructure.setDesiredState(Superstructure.SuperstructureState.IDLE)));
         joystick.leftTrigger().onFalse(new InstantCommand(() -> intake.stopIntake()));
         joystick.start().onTrue(new InstantCommand(() -> SimulatedArena.getInstance().clearGamePieces()));
+
+        joystick.back().onTrue(new InstantCommand(() -> drivetrain.resetPose(new Pose2d(10, 4.0, Rotation2d.fromDegrees(0)))));
         joystick.rightBumper().onTrue(new InstantCommand(() -> superstructure.setDriveState(DriveHandler.DriveState.DRIVETOPOINTLOW)));
         joystick.rightBumper().onFalse(new InstantCommand(() -> superstructure.setDriveState(DriveHandler.DriveState.TELEOPDRIVE)));
         

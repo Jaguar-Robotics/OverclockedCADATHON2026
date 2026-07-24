@@ -13,13 +13,11 @@ import static edu.wpi.first.units.Units.Volts;
 import java.util.function.Supplier;
 
 import org.ironmaple.simulation.SimulatedArena;
-import org.ironmaple.simulation.drivesims.COTS;
 import org.ironmaple.simulation.drivesims.GyroSimulation;
 import org.ironmaple.simulation.drivesims.SwerveDriveSimulation;
 import org.ironmaple.simulation.drivesims.SwerveModuleSimulation;
 import org.ironmaple.simulation.drivesims.configs.DriveTrainSimulationConfig;
 import org.ironmaple.simulation.drivesims.configs.SwerveModuleSimulationConfig;
-import org.ironmaple.simulation.motorsims.SimulatedBattery;
 import org.ironmaple.simulation.motorsims.SimulatedMotorController;
 
 import com.ctre.phoenix6.configs.CANcoderConfiguration;
@@ -28,6 +26,7 @@ import com.ctre.phoenix6.configs.TalonFXConfiguration;
 import com.ctre.phoenix6.hardware.CANcoder;
 import com.ctre.phoenix6.hardware.Pigeon2;
 import com.ctre.phoenix6.hardware.TalonFX;
+import com.ctre.phoenix6.mechanisms.swerve.LegacySwerveModuleConstants.SteerFeedbackType;
 import com.ctre.phoenix6.signals.StaticFeedforwardSignValue;
 import com.ctre.phoenix6.sim.CANcoderSimState;
 import com.ctre.phoenix6.sim.Pigeon2SimState;
@@ -263,6 +262,7 @@ public class MapleSimSwerveDrivetrain {
                 // Disable CanCoder inversion
                 .withEncoderInverted(false)
                 .withCouplingGearRatio(0.0)
+                //.withFeedbackSource(SwerveModuleConstants.SteerFeedbackType.FusedCANcoder)
                 // Adjust steer motor PID gains for simulation
                 .withSteerMotorGains(new Slot0Configs()
                         .withKP(70)
@@ -272,11 +272,12 @@ public class MapleSimSwerveDrivetrain {
                         .withKV(1.91)
                         .withKA(0)
                         .withStaticFeedforwardSign(StaticFeedforwardSignValue.UseClosedLoopSign))
-                .withSteerMotorGearRatio(16.0)
+                .withSteerMotorGearRatio(16) //26.09090909090909 / 16
                 // Adjust friction voltages
-                .withDriveFrictionVoltage(Volts.of(0.1))
-                .withSteerFrictionVoltage(Volts.of(0.05))
+                 .withDriveFrictionVoltage(Volts.of(0.1))
+                 .withSteerFrictionVoltage(Volts.of(0.05))
                 // Adjust steer inertia
                 .withSteerInertia(KilogramSquareMeters.of(0.05));
+
     }
 }

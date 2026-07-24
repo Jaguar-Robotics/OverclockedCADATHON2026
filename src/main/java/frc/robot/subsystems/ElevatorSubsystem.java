@@ -11,6 +11,8 @@ import static edu.wpi.first.units.Units.Rotation;
 import static edu.wpi.first.units.Units.Rotations;
 import static edu.wpi.first.units.Units.RotationsPerSecond;
 
+import java.lang.annotation.Target;
+
 import com.ctre.phoenix6.BaseStatusSignal;
 import com.ctre.phoenix6.CANBus;
 import com.ctre.phoenix6.StatusSignal;
@@ -44,6 +46,7 @@ import edu.wpi.first.wpilibj2.command.button.Trigger;
 import frc.robot.Constants;
 
 public class ElevatorSubsystem extends SubsystemBase {
+    private Distance targDist;
     /** Position setpoints for the elevator. */
     public enum Setpoint {
         IN((Constants.ElevatorConstants.In)), //ion use these lmao
@@ -53,7 +56,7 @@ public class ElevatorSubsystem extends SubsystemBase {
         /** The position target of the setpoint in angular units. */
         public final Angle target;
         /** The position target of the setpoint in linear units. */
-        public final Distance targetDist;
+        public Distance targetDist = Inches.of(0);
 
         private Setpoint(Angle target) {
             this.target = target;
@@ -173,6 +176,14 @@ public class ElevatorSubsystem extends SubsystemBase {
         return motor_id_35Position.getValue();
     }
 
+        /**
+     * @return The Position of the elevator
+     */
+    public Distance getPositionDist() {
+        Distance distInch = Inches.of(motor_id_35Position.getValueAsDouble() * kDrumRadius.in(Inches) * 2 * Math.PI);
+        return distInch;
+    }
+
     /**
      * @return The Velocity of the elevator
      */
@@ -227,6 +238,7 @@ public class ElevatorSubsystem extends SubsystemBase {
      */
     public void goToSetpoint(Distance target) {
         goToSetpoint(Radians.of(target.div(kDrumRadius).magnitude()));
+        targDist = target;
     }
 
 
@@ -266,6 +278,16 @@ public class ElevatorSubsystem extends SubsystemBase {
 
     public boolean isAtSetpoint(ElevatorSubsystem.Setpoint setpoint){
         return getPosition().isNear(setpoint.target, Rotations.of(0.2));
+    }
+
+    public boolean isAtSetpoint(){
+        if(targDist != null) {
+        return targDist.isNear(getPositionDist(), Inches.of(2));}
+        return false;
+    }
+
+    public boolean readyToHandoff(){
+        return Inches.of(0).isNear(getPositionDist(), Inches.of(2));
     }
 
     double elevatorLengthInches = 0.0;

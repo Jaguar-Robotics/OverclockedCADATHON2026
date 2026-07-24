@@ -26,6 +26,7 @@ import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.Matrix;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
+import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.math.numbers.N1;
 import edu.wpi.first.math.numbers.N3;
@@ -306,8 +307,8 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
         mapleSimSwerveDrivetrain = new MapleSimSwerveDrivetrain(
                 Seconds.of(kSimLoopPeriod),
                 Pounds.of(115),
-                Inches.of(30),
-                Inches.of(30),
+                Inches.of(34.5 +4),
+                Inches.of(25.5 + 4),
                 DCMotor.getKrakenX60(1),
                 DCMotor.getKrakenX44(1),
                 1.2,
@@ -371,7 +372,27 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
             .withVelocityY(ySpeed * MaxSpeed)
             .withRotationalRate(rotSpeed * MaxAngularRate);
     });
-    }
+    } 
+
+/*     public Command TeleopDrive(){
+    return applyRequest(() -> {
+        Translation2d linearVelocity = JoystickDriveUtil.getLinearVelocityFromJoysticks(
+            -joystick.getLeftY(), -joystick.getLeftX(), Constants.DriveConstants.TranslationDeadband);
+        double rotSpeed = JoystickDriveUtil.getOmegaFromJoysticks(
+            -joystick.getRightX(), Constants.DriveConstants.RotationDeadband);
+
+        double vx = linearVelocity.getX() * MaxSpeed;
+        double vy = linearVelocity.getY() * MaxSpeed;
+        double omega = rotSpeed * MaxAngularRate;
+
+        DogLog.log("Drive/CommandedXSpeed", vx);
+        DogLog.log("Drive/CommandedYSpeed", vy);
+        DogLog.log("Drive/CommandedOmega", omega);
+        DogLog.log("Drive/ActualOmega", getState().Speeds.omegaRadiansPerSecond);
+
+        return drive.withVelocityX(vx).withVelocityY(vy).withRotationalRate(omega);
+    });
+    } */
 
     //BLINE SHI
     public Pose2d getPose() {
@@ -404,8 +425,15 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
         addVisionMeasurement(
             getSimPose(),
             Utils.getCurrentTimeSeconds(),
-            edu.wpi.first.math.VecBuilder.fill(0.001, 0.001, 0.001) // near-zero std devs — this is exact ground truth in sim, trust it fully
-        );
+            edu.wpi.first.math.VecBuilder.fill(0.001, 0.001, 0.001)); // near-zero std devs — this is exact ground truth in sim, trust it fully
+
+                var moduleStates = getState().ModuleStates;
+        for (int i = 0; i < moduleStates.length; i++) {
+            DogLog.log("Drive/Module" + i + "/AngleDeg", moduleStates[i].angle.getDegrees());
+            DogLog.log("Drive/Module" + i + "/SpeedMPS", moduleStates[i].speedMetersPerSecond);
+        }
+        DogLog.log("Drive/FusedHeadingDeg", getState().Pose.getRotation().getDegrees());
+        DogLog.log("Drive/SimHeadingDeg", getSimPose().getRotation().getDegrees());
     
 
         

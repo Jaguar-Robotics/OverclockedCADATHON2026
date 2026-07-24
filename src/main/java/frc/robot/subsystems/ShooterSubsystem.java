@@ -29,7 +29,7 @@ public class ShooterSubsystem extends SubsystemBase {
 
   public void shoot(){
     GamePieceProjectile shotNote;
-    if (!intake.getNote() || intake.NoteInEE){
+    if (!intake.NoteinIntake){
       return;
     }
 
@@ -43,6 +43,7 @@ public class ShooterSubsystem extends SubsystemBase {
       Degrees.of(38));
 
       SimulatedArena.getInstance().addGamePieceProjectile(shotNote);
+      intake.getNote();
   }
 
   @Override

@@ -4,20 +4,17 @@
 
 package frc.robot.handlers;
 
-import static edu.wpi.first.units.Units.Rotation;
-
 import com.ctre.phoenix6.swerve.SwerveRequest;
 
 import dev.doglog.DogLog;
 import edu.wpi.first.math.geometry.Pose2d;
-import edu.wpi.first.math.geometry.Rotation2d;
-import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.CommandScheduler;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.handlers.StateSubsystem.State;
 import frc.robot.lib.BLine.FollowPath;
 import frc.robot.lib.BLine.Path;
+import frc.robot.lib.BLine.Path.PathConstraints;
 import frc.robot.subsystems.Drive.CommandSwerveDrivetrain;
 import frc.robot.subsystems.Drive.DTPshi;
 
@@ -40,6 +37,13 @@ public class DriveHandler extends SubsystemBase {
   private DriveState desiredState = DriveState.TELEOPDRIVE; 
   private DriveState currentState = DriveState.TELEOPDRIVE;
   private final SwerveRequest.SwerveDriveBrake brake = new SwerveRequest.SwerveDriveBrake();
+
+  PathConstraints DTPconstraints = new PathConstraints()
+     .setMaxVelocityMetersPerSec(1.5)
+     .setMaxAccelerationMetersPerSec2(2.0)
+     .setEndTranslationToleranceMeters(0.05)
+     .setEndRotationToleranceDeg(1);
+
 
   /** Creates a new IntakeHandler. */
   private DriveHandler() {
@@ -90,6 +94,7 @@ public class DriveHandler extends SubsystemBase {
                 DogLog.log("Drive/DTPoint", DTPoint);
                 Path DTPPath = new Path(
                   new Path.Waypoint(DTPoint));
+                DTPPath.setPathConstraints(DTPconstraints); //slow it down 
                 Command driveToPointCommand = pathBuilder.build(DTPPath);
                 CommandScheduler.getInstance().schedule(driveToPointCommand);
             default:

@@ -57,7 +57,7 @@ public class ArmSubsystem extends SubsystemBase {
     private CommandSwerveDrivetrain drivetrain;
     private ElevatorSubsystem elevator;
     private IntakeSubsystem intake;
-    private Angle target;
+    private Angle target = Degrees.of(0);
     private MechanismLigament2d motor_id_35Mech2d;
 
     private static final int kNumConfigAttempts = 2;
@@ -65,7 +65,7 @@ public class ArmSubsystem extends SubsystemBase {
     private static final double kGearRatio = 42.1875;
     private static final Distance kArmLength = Inches.of(16);
     private static final Angle kMinAngle = Degrees.of(-105);   // lower hard stop
-    private static final Angle kMaxAngle = Degrees.of(60);   // upper hard stop
+    private static final Angle kMaxAngle = Degrees.of(100);   // upper hard stop
 
 
     /* leader and follower motors */
@@ -115,7 +115,7 @@ public class ArmSubsystem extends SubsystemBase {
     static { 
         motorInitialConfigs.Feedback.SensorToMechanismRatio = kGearRatio;
         motorInitialConfigs.SoftwareLimitSwitch.ForwardSoftLimitEnable = true;
-        motorInitialConfigs.SoftwareLimitSwitch.ForwardSoftLimitThreshold = Degrees.of(60).in(Rotation);
+        motorInitialConfigs.SoftwareLimitSwitch.ForwardSoftLimitThreshold = Degrees.of(100).in(Rotation);
         motorInitialConfigs.SoftwareLimitSwitch.ReverseSoftLimitEnable = true;
         motorInitialConfigs.SoftwareLimitSwitch.ReverseSoftLimitThreshold = Degrees.of(-105).in(Rotations);
         motorInitialConfigs.ClosedLoopGeneral.ContinuousWrap = false;
@@ -248,13 +248,16 @@ public class ArmSubsystem extends SubsystemBase {
     */
 
     public boolean isAtSetpoint(){
-        return getPosition().isNear(target, Rotations.of(0.2));
+        return target.isNear(getPosition(), Degrees.of(2));
     }
 
-    private final StructPublisher<Pose3d> heldGemstonePublisher =
-    NetworkTableInstance.getDefault()
-        .getStructTopic("FieldSimulation/Held Gemstone", Pose3d.struct)
-        .publish();
+    public boolean readyToHandoff(){
+        return Degree.of(-105).isNear(getPosition(), Degrees.of(2));
+    }
+
+    public boolean awayFromShooter(){
+        return getPosition().gte(Degrees.of(60));
+    }
     
     private double armAngle = 0.0;
     private Pose3d heldGemstonePose = new Pose3d();
@@ -286,13 +289,7 @@ public class ArmSubsystem extends SubsystemBase {
                     ));
 
                 // Publish the active pose to NetworkTables and DogLog
-                heldGemstonePublisher.set(heldGemstonePose);
-            } else {
-                // Option A: Publish an empty/null pose so AdvantageScope hides it
-                //heldGemstonePublisher.set(new Pose3d()); 
-                
-                // Option B: If your publisher supports clearing/unpublishing, do that instead
-                heldGemstonePublisher.set(new Pose3d()); 
+                intake.heldGemstonePublisher.set(heldGemstonePose);
             }
     }
 
@@ -301,7 +298,7 @@ public class ArmSubsystem extends SubsystemBase {
     public void score(){
         if (!intake.NoteInEE) {return;}
         intake.getNote();
-        heldGemstonePublisher.set(null);
+        intake.heldGemstonePublisher.set(null);
         placedNote = new CrystalOnFly(
             drivetrain.getSimPose().getTranslation(),
             localGemstonePose.getTranslation().toTranslation2d(),
@@ -310,7 +307,6 @@ public class ArmSubsystem extends SubsystemBase {
             Meters.of(heldGemstonePose.getZ()),
             MetersPerSecond.of(0),
             Radians.of(heldGemstonePose.getRotation().getY()));
-       
         SimulatedArena.getInstance().addGamePieceProjectile(placedNote);
     }
 
